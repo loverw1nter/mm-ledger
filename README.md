@@ -53,20 +53,15 @@ npm run deploy
 
 会得到一个 `https://mm-ledger.<你的子域>.workers.dev` 地址。
 
-## 多设备同步
+## 线上地址
 
-同步靠 Cloudflare D1，不靠 GitHub。按上面的「部署」发布后，会得到一个 `https://mm-ledger.<你的子域>.workers.dev` 地址。手机和电脑都打开这个网址，用同一个 `APP_PASSWORD` 登录，看到的就是同一份 D1 数据；任意一台记账，另一台刷新后就能看到。
+https://mm-ledger-site.pages.dev
 
-GitHub 仓库只存代码，不存你的账本数据。`127.0.0.1:8787` 上的数据也只存在当前电脑的本地数据库里，不会自动跑到云上。
+手机和电脑都打开这个网址，用同一个 `APP_PASSWORD` 登录，看到的就是同一份 D1 数据；任意一台记账，另一台刷新后就能看到。GitHub 仓库只存代码，不存账本数据。
 
-现有账单第一次上云：
+国内直接访问 `workers.dev` 可能被 DNS 污染，所以这个站额外用 Cloudflare Pages 的 `mm-ledger-site` 做入口：`proxy/_worker.js` 通过 service binding 直连 `mm-ledger` Worker，不经过 `workers.dev`。
 
-1. 本地打开「我的 → 导出 CSV」，把当前 1735 笔导出来。
-2. 按上面的步骤完成 Cloudflare 部署，打开线上网址。
-3. 登录后进「我的 → 导入 CSV」，选择刚导出的文件。
-4. 确认线上顶栏显示「共 1735 笔」，再在手机打开同一个网址。
-
-之后手机和电脑都保存这个线上网址即可。iPhone 用 Safari、安卓用 Chrome，登录后选「添加到主屏幕」，用起来和 App 一样。
+如果以后换 Cloudflare 账号重新部署：先在「我的 → 导出 CSV」备份，按上面的步骤建新库和网站，再在新站「我的 → 导入 CSV」恢复。
 
 ## 手机使用
 
