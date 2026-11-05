@@ -1,22 +1,58 @@
-# 小账本
+<p align="center"><img src="public/icon-180.png" width="88" alt="小账本"></p>
 
-需要 Node.js 18 以上（推荐 20 / 22）。
+<h1 align="center">小账本</h1>
 
-一个跑在 Cloudflare Workers 上的单人记账网站，数据存在 D1，手机和电脑用同一个网址就能同步。底部还有合并进来的「饭桌」食物计划本。
+<p align="center">一个跑在 Cloudflare Workers + D1 上的单人记账 PWA。</p>
 
-界面是浅灰蓝的新拟态风格：悬浮卡片、柔和双向阴影，和「饭桌」共用一套视觉。
+手机和电脑打开同一个网址，就能共用一份账本。没有广告、订阅和导出限制，数据放在自己的 Cloudflare 账号里。底部还内置了一个「饭桌」食物计划本。
 
-## 本地跑起来
+## 功能
+
+- 支出 / 收入记账，支持一级分类和一层子类
+- 子类胶囊右侧「＋」快捷新建子类
+- 明细支持跨月份搜索分类、子类和备注
+- 多选账单，批量删除或批量移动到其他分类
+- 月度统计、分类占比、近 7 天花销
+- 攒钱目标、存入 / 取出记录
+- 饭桌周计划、食材和菜单管理
+- CSV 账单导入 / 导出，攒钱记录单独导出
+- PWA，可添加到 iPhone / 安卓主屏幕
+- 手机、平板和电脑自动同步
+
+界面使用浅灰蓝新拟态风格：悬浮卡片、柔和阴影、毛玻璃和冷色阴影。
+
+## 技术栈
+
+- Cloudflare Workers + Static Assets
+- Cloudflare D1
+- Hono
+- 原生 JavaScript / CSS，无前端构建步骤
+
+## 本地运行
+
+需要 Node.js 18 以上。
 
 ```bash
 npm install
+```
+
+复制 `.dev.vars.example` 为 `.dev.vars`，把里面的密码和会话密钥改成自己的：
+
+```text
+APP_PASSWORD=你的登录密码
+SESSION_SECRET=一段长随机字符串
+```
+
+初始化本地数据库并启动：
+
+```bash
 npx wrangler d1 migrations apply mm-ledger --local
 npm run dev
 ```
 
-打开 http://localhost:8787 ，密码是 `.dev.vars` 里的 `APP_PASSWORD`（默认 `test1234`）。
+打开 http://localhost:8787 ，用刚才设置的 `APP_PASSWORD` 登录。
 
-## 部署
+## 部署到 Cloudflare
 
 1. 登录 Cloudflare：
 
@@ -24,26 +60,28 @@ npm run dev
 npx wrangler login
 ```
 
-2. 建数据库，把输出的 `database_id` 填进 `wrangler.jsonc`：
+2. 创建 D1 数据库：
 
 ```bash
 npx wrangler d1 create mm-ledger
 ```
 
-3. 建表（会按顺序执行 `migrations` 里的全部迁移）：
+把输出里的 `database_id` 填进 `wrangler.jsonc`。
+
+3. 建表：
 
 ```bash
 npm run db:remote
 ```
 
-4. 设置密码和会话密钥：
+4. 设置线上密码和会话密钥：
 
 ```bash
 npx wrangler secret put APP_PASSWORD
 npx wrangler secret put SESSION_SECRET
 ```
 
-`SESSION_SECRET` 随便生成一串长随机字符即可，改了它所有人会重新登录。
+`SESSION_SECRET` 可以用一段长随机字符。修改它会让已登录的设备重新登录。
 
 5. 发布：
 
@@ -53,64 +91,50 @@ npm run deploy
 
 会得到一个 `https://mm-ledger.<你的子域>.workers.dev` 地址。
 
-## 线上地址
+## 多设备同步
 
-https://mm-ledger-site.pages.dev
+同步靠 Cloudflare D1，不靠 GitHub。
 
-手机和电脑都打开这个网址，用同一个 `APP_PASSWORD` 登录，看到的就是同一份 D1 数据；任意一台记账，另一台刷新后就能看到。GitHub 仓库只存代码，不存账本数据。
+手机和电脑都打开同一个线上网址，用同一个 `APP_PASSWORD` 登录，看到的就是同一份数据；任意一台记账，另一台刷新后就能看到。GitHub 仓库只存代码，不存账本数据。
 
-国内直接访问 `workers.dev` 可能被 DNS 污染，所以这个站额外用 Cloudflare Pages 的 `mm-ledger-site` 做入口：`proxy/_worker.js` 通过 service binding 直连 `mm-ledger` Worker，不经过 `workers.dev`。
-
-如果以后换 Cloudflare 账号重新部署：先在「我的 → 导出 CSV」备份，按上面的步骤建新库和网站，再在新站「我的 → 导入 CSV」恢复。
-
-## 手机使用
-
-用手机浏览器打开网址，登录后在分享菜单里选「添加到主屏幕」，桌面会出现图标，打开后没有浏览器地址栏，跟 App 一样。iPhone 用 Safari，安卓用 Chrome。
+iPhone 用 Safari、安卓用 Chrome，登录后在分享菜单里选「添加到主屏幕」，用起来和 App 一样。
 
 ## 导入旧账单
 
-「我的 → 导入 CSV」，选 `喵喵记账_账单导出.csv`。
+「我的 → 导入 CSV」，选择从旧记账软件导出的 CSV。
 
-表头需要包含「日期」和「金额」，「收支」「分类」「子类」「图标」「备注」「账单ID」可选（「编号」也认作账单ID）。子类不存在时会自动建到对应分类下面。重复导入不会产生重复数据（按账单ID去重）。
+表头需要包含「日期」和「金额」；「收支」「分类」「子类」「图标」「备注」「账单ID」可选（「编号」也认作账单ID）。子类不存在时会自动建到对应分类下面。重复导入不会产生重复数据（按账单ID去重）。
 
-## 子类
-
-分类可以有一层子类，比如「旅行 → 高铁票」「购物 → 团购」。记账页分类下方是一排子类胶囊，点「全部」就是不选子类；编辑账单时可以在「子类」下拉里改。
-
-记账页选好一级分类后，子类胶囊右边有个「＋」，点它就能直接新建子类，新子类会自动选中。「我的 → 分类管理」里也能看到两级分类：点某个分类下面的「新建」，新分类就会挂到它下面；删除父分类前要先处理它的子类。统计和明细都会显示子类名。
-
-## 明细搜索与批量整理
-
-明细页的搜索框搜的是全部账单，不受当前月份限制，可以按分类、子类或备注找；结果里会带年份。清空搜索就回到当前月份。
-
-点右上角「多选」进入整理模式：可以逐笔勾选，也可以「全选」当前结果，然后批量删除，或把选中的账单一键移到另一个分类/子类。支出和收入不能混在一起移动，会单独提示。
-
-## 攒钱 & 一周花销
-
-「统计」页顶部有两张卡片：
-
-- 近 7 天花销：最近 7 天的支出合计、每天的小柱状图，以及和前 7 天的对比。
-- 攒钱：设一个目标，随时「存一笔」或「取出一笔」，会显示当前总额、完成百分比和还差多少。最近 8 条记录可以单独删除。
-
-## 饭桌
-
-底部导航的「饭桌」就是原来的 `fanzhuo.pages.dev`，现在内嵌在小账本里，不会整页跳走，底部导航会一直保留；打开饭桌弹窗时导航会暂时让开。它和账本共用登录，数据存 D1，手机和电脑会自动同步。页面右上角仍然可以导出/导入 JSON 备份。
-
-如果旧版饭桌里已经有数据：先在旧站右上角「导出」一份 JSON，再来新饭桌右上角「导入」一次即可。之后就不用再手动搬了。两个设备同时改同一周时，以最后一次保存为准。
-
-## 导出
+## 数据与备份
 
 「我的 → 导出 CSV」导出账单；「导出攒钱 CSV」单独导出攒钱记录。随时下载，没有限制。
 
-## 备份
+D1 数据在 Cloudflare 上，建议定期导出 CSV 存一份。本地 `.dev.vars`、`.wrangler` 和数据库文件都已加入 `.gitignore`，不会提交到 Git。
 
-D1 数据在 Cloudflare 上，建议每月导出一次 CSV 存到自己的网盘。
+## 项目结构
+
+```text
+public/            前端页面、样式、图标和饭桌
+src/index.ts       Worker API、登录、D1 查询
+migrations/        D1 表结构
+proxy/_worker.js   可选的 pages.dev 反向入口
+wrangler.jsonc     Worker 与 D1 配置
+```
+
+## 国内访问
+
+`workers.dev` 在国内可能被 DNS 污染。`proxy/_worker.js` 是给 Cloudflare Pages 用的可选反向入口：通过 service binding 直连 Worker，不经过 `workers.dev`。
+
+不需要这个入口时，直接使用 Worker 的 `workers.dev` 地址或绑定自己的域名即可。
 
 ## 数据表
 
 - `bills`：账单
-- `categories`：分类，默认按喵喵记账的体系预置，可在「分类管理」里增删、隐藏
-  - `parent_id` 为空是一级分类，否则是某个分类的子类
+- `categories`：一级分类和子类，`parent_id` 为空表示一级分类
 - `savings`：攒钱记录，正数是存入、负数是取出
 - `app_settings`：键值配置，目前存攒钱目标
-- `fanzhuo_state`：饭桌的整份数据快照，登录后自动同步
+- `fanzhuo_state`：饭桌数据快照，登录后自动同步
+
+## 说明
+
+分类体系参考了「喵喵记账」，方便从旧账本迁移。项目按单人使用设计，没有多用户和权限系统。
