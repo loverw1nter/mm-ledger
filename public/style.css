@@ -259,6 +259,12 @@ body.fanzhuo-modal-open::after{display:none}
 .row:last-child{border-bottom:0}
 .row:active{background:var(--glass-soft)}
 .chev{color:var(--faint);font-size:18px}
+.me-account{font-size:18px;font-weight:800;color:var(--ink-strong);margin:5px 0 7px}
+.account-item{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:11px 2px;border-bottom:1px solid var(--line);font-size:14px;color:var(--ink-strong)}
+.account-item:last-child{border-bottom:0}
+.account-item b{font-weight:700}
+.account-badge{font-size:11px;padding:3px 8px;border-radius:999px;background:var(--glass-soft);color:var(--muted);box-shadow:var(--shadow-inset-sm)}
+.account-badge.admin{background:var(--accent-soft);color:var(--accent)}
 
 /* 底部导航 */
 .tabbar{

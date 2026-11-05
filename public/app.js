@@ -17,6 +17,7 @@ const state = {
   selecting: false,
   selected: new Set(),
   batchType: 1,
+  me: null,
 };
 
 function pad(n) { return String(n).padStart(2, "0"); }
@@ -65,7 +66,17 @@ async function api(path, opts = {}) {
 function showLogin() {
   $("#app").classList.add("hidden");
   $("#login").classList.remove("hidden");
-  setTimeout(() => $("#password").focus(), 50);
+  state.me = null;
+  const frame = $("#fanzhuo-frame");
+  if (frame) {
+    frame.setAttribute("src", "about:blank");
+  }
+  try { localStorage.removeItem("fanzhuo.data.v1"); } catch {}
+  const username = $("#username");
+  if (username && !username.value) {
+    try { username.value = localStorage.getItem("mm.lastUser") || ""; } catch {}
+  }
+  setTimeout(() => $(username && username.value ? "#password" : "#username").focus(), 50);
 }
 
 function showApp() {
@@ -79,14 +90,14 @@ $("#login-form").addEventListener("submit", async (e) => {
   btn.disabled = true;
   $("#login-error").textContent = "";
   try {
-    await api("/api/login", { method: "POST", body: { password: $("#password").value } });
+    const username = $("#username").value.trim();
+    await api("/api/login", {
+      method: "POST",
+      body: { username, password: $("#password").value },
+    });
+    try { localStorage.setItem("mm.lastUser", username); } catch {}
     const next = new URLSearchParams(location.search).get("next");
-    if (next && next.startsWith("/") && !next.startsWith("//")) {
-      location.replace(next);
-      return;
-    }
-    showApp();
-    await boot();
+    location.replace(next && next.startsWith("/") && !next.startsWith("//") ? next : "/");
   } catch (err) {
     $("#login-error").textContent = err.message;
   } finally {
@@ -99,6 +110,7 @@ async function boot() {
   const data = await api("/api/bootstrap?month=" + state.month);
   state.categories = data.categories || [];
   state.total = data.total || state.total;
+  state.me = data.user || null;
   $("#top-meta").textContent = state.total.n ? "共 " + state.total.n + " 笔" : "";
   initEntry();
   const want = new URLSearchParams(location.search).get("view");
@@ -897,7 +909,7 @@ function switchView(view) {
   if (!isFanzhuo) document.body.classList.remove("fanzhuo-modal-open");
   if (isFanzhuo) {
     const frame = $("#fanzhuo-frame");
-    if (!frame.getAttribute("src")) frame.setAttribute("src", frame.dataset.src);
+    if (frame.getAttribute("src") !== frame.dataset.src) frame.setAttribute("src", frame.dataset.src);
   }
   $$(".tabbar button").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
   if (view === "list") loadBills();
@@ -930,9 +942,58 @@ function refreshVisible() {
 
 function renderMe() {
   const t = state.total;
+  const me = state.me;
+  $("#me-account").textContent = me ? me.username : "—";
+  $("#btn-accounts").classList.toggle("hidden", !me || me.role !== "admin");
   $("#me-meta").textContent = t.n
     ? `共 ${t.n} 笔账单，${t.minDate || ""} 至 ${t.maxDate || ""}`
     : "还没有账单";
+}
+
+function renderAccounts(users) {
+  const me = state.me;
+  $("#accounts-list").innerHTML = users.length
+    ? users.map((u) => {
+        const tags = [];
+        if (me && u.id === me.id) tags.push("当前账号");
+        if (u.role === "admin") tags.push("管理员");
+        return `<div class="account-item">
+          <div><b>${esc(u.username)}</b><div class="muted small">${Number(u.bills || 0)} 笔账单</div></div>
+          <span class="account-badge ${u.role === "admin" ? "admin" : ""}">${tags.join(" · ") || "账号"}</span>
+        </div>`;
+      }).join("")
+    : `<div class="empty">还没有账号</div>`;
+}
+
+async function openAccounts() {
+  $("#sheet-accounts").classList.remove("hidden");
+  try {
+    const data = await api("/api/users");
+    renderAccounts(data.users || []);
+  } catch (err) {
+    $("#accounts-list").innerHTML = `<div class="empty">${esc(err.message)}</div>`;
+  }
+}
+
+async function addUser() {
+  const username = $("#new-user-name").value.trim();
+  const password = $("#new-user-pass").value;
+  if (!username) return toast("填一个账号名");
+  if (password.length < 8) return toast("密码至少 8 位");
+  const btn = $("#btn-add-user");
+  btn.disabled = true;
+  try {
+    await api("/api/users", { method: "POST", body: { username, password } });
+    $("#new-user-name").value = "";
+    $("#new-user-pass").value = "";
+    const data = await api("/api/users");
+    renderAccounts(data.users || []);
+    toast("账号已添加");
+  } catch (err) {
+    toast(err.message);
+  } finally {
+    btn.disabled = false;
+  }
 }
 
 /* ---------- 弹层 ---------- */
@@ -942,6 +1003,14 @@ function closeSheets() {
 $$("[data-close]").forEach((el) => el.addEventListener("click", closeSheets));
 
 $("#btn-cats").addEventListener("click", openCats);
+$("#btn-accounts").addEventListener("click", openAccounts);
+$("#btn-add-user").addEventListener("click", addUser);
+$("#new-user-pass").addEventListener("keydown", (e) => {
+  if (e.key === "Enter") {
+    e.preventDefault();
+    addUser();
+  }
+});
 $("#btn-goal").addEventListener("click", () => openSavingsSheet("goal"));
 $("#btn-deposit").addEventListener("click", () => openSavingsSheet("in", "in"));
 $("#btn-withdraw").addEventListener("click", () => openSavingsSheet("in", "out"));
