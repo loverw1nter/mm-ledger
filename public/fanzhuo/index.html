@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#e8edf5" />
+    <meta
+      name="description"
+      content="饭桌是小账本里的食物计划本：安排一周菜单，记下想吃的，看看手边有什么。"
+    />
+    <title>饭桌 · 小账本</title>
+    <link rel="icon" href="./assets/icon.svg" type="image/svg+xml" />
+    <link rel="apple-touch-icon" href="./assets/icon-192.png" />
+    <link rel="stylesheet" href="./styles.css" />
+  </head>
+  <body>
+    <svg class="svg-sprite" aria-hidden="true">
+      <symbol id="i-bowl" viewBox="0 0 24 24">
+        <path d="M3.4 10.5h17.2a8.6 8.6 0 0 1-17.2 0Z" />
+        <path d="M7.1 9.2c.1-2.6 2-4.5 4.9-4.5s4.8 1.9 4.9 4.5" />
+        <path d="M4.8 19.1h14.4" />
+      </symbol>
+      <symbol id="i-plus" viewBox="0 0 24 24">
+        <path d="M12 5v14M5 12h14" />
+      </symbol>
+      <symbol id="i-minus" viewBox="0 0 24 24">
+        <path d="M5 12h14" />
+      </symbol>
+      <symbol id="i-chevron-left" viewBox="0 0 24 24">
+        <path d="m15 18-6-6 6-6" />
+      </symbol>
+      <symbol id="i-chevron-right" viewBox="0 0 24 24">
+        <path d="m9 18 6-6-6-6" />
+      </symbol>
+      <symbol id="i-download" viewBox="0 0 24 24">
+        <path d="M12 3v12m0 0 4-4m-4 4-4-4" />
+        <path d="M4 17v2.2c0 .9.7 1.8 1.8 1.8h12.4c1.1 0 1.8-.9 1.8-1.8V17" />
+      </symbol>
+      <symbol id="i-upload" viewBox="0 0 24 24">
+        <path d="M12 16V4m0 0 4 4m-4-4L8 8" />
+        <path d="M4 17v2.2c0 .9.7 1.8 1.8 1.8h12.4c1.1 0 1.8-.9 1.8-1.8V17" />
+      </symbol>
+      <symbol id="i-pencil" viewBox="0 0 24 24">
+        <path d="m4 16.8-.8 4 4-.8L19.4 7.8a2.1 2.1 0 0 0-3-3L4 16.8Z" />
+        <path d="m14.8 6.2 3 3" />
+      </symbol>
+      <symbol id="i-trash" viewBox="0 0 24 24">
+        <path d="M4 7h16M9 7V4.8c0-.4.4-.8.8-.8h4.4c.4 0 .8.4.8.8V7" />
+        <path d="m6.5 7 .8 13h9.4l.8-13M10 11v5M14 11v5" />
+      </symbol>
+      <symbol id="i-check" viewBox="0 0 24 24">
+        <path d="m4.5 12.5 5 5 10-11" />
+      </symbol>
+      <symbol id="i-calendar-plus" viewBox="0 0 24 24">
+        <rect x="3" y="5" width="18" height="16" rx="3" />
+        <path d="M8 3v4M16 3v4M3 10h18M12 14v4M10 16h4" />
+      </symbol>
+      <symbol id="i-x" viewBox="0 0 24 24">
+        <path d="m6 6 12 12M18 6 6 18" />
+      </symbol>
+      <symbol id="i-arrow-up-right" viewBox="0 0 24 24">
+        <path d="M7 17 17 7M9 7h8v8" />
+      </symbol>
+      <symbol id="i-leaf" viewBox="0 0 24 24">
+        <path d="M5 20c3-8 7-12 14-15-1 8-5 13-11 14" />
+        <path d="M6 17c3-1 5-3 7-6" />
+      </symbol>
+    </svg>
+
+    <div class="app-shell">
+      <header class="site-header">
+        <div class="header-inner">
+          <a class="brand" href="#" id="brandButton" aria-label="回到本周">
+            <span class="brand-mark" aria-hidden="true">
+              <svg><use href="#i-bowl"></use></svg>
+            </span>
+            <span class="brand-word">
+              <strong>饭桌</strong>
+              <small>WEEKLY TABLE</small>
+            </span>
+          </a>
+
+          <div class="header-actions">
+            <span class="save-status" id="saveStatus">
+              <span class="status-dot" aria-hidden="true"></span>
+              同步中
+            </span>
+            <a class="header-button" href="/" title="回小账本" id="ledgerHomeLink">
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 10.5 12 4l8 6.5" />
+                <path d="M6 9.5V20h12V9.5" />
+              </svg>
+              <span>小账本</span>
+            </a>
+            <button class="header-button" type="button" id="exportButton" title="导出一份 JSON 备份">
+              <svg aria-hidden="true"><use href="#i-download"></use></svg>
+              <span>导出</span>
+            </button>
+            <button class="header-button" type="button" id="importButton" title="从 JSON 备份恢复">
+              <svg aria-hidden="true"><use href="#i-upload"></use></svg>
+              <span>导入</span>
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main>
+        <section class="hero" aria-labelledby="heroTitle">
+          <div class="hero-copy">
+            <p class="eyebrow">
+              <span class="eyebrow-line" aria-hidden="true"></span>
+              <span id="heroWeekLabel">2026 · 第 45 周</span>
+            </p>
+            <h1 id="heroTitle">这周，<br /><em>吃点什么？</em></h1>
+            <p class="hero-lead">
+              把馋的记下来，把手边的用起来。先安排几顿，剩下的空位留给临时起意。
+            </p>
+            <div class="hero-stats" aria-label="本周概览">
+              <div class="hero-stat">
+                <strong id="statMeals">0</strong>
+                <span>天已安排</span>
+              </div>
+              <div class="hero-stat">
+                <strong id="statWishes">0</strong>
+                <span>道想吃</span>
+              </div>
+              <div class="hero-stat">
+                <strong id="statPantry">0</strong>
+                <span>样在手边</span>
+              </div>
+              <div class="hero-stat">
+                <strong class="stat-money" id="statWeekCost">¥0.00</strong>
+                <span>周总花费</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="hero-art" aria-hidden="true">
+            <div class="hero-note">
+              把想吃的<br />
+              <strong>变成这周的饭</strong>
+            </div>
+            <div class="plate">
+              <span class="plate-week" id="plateWeek">WEEK 45</span>
+              <span class="plate-big">饭</span>
+              <span class="plate-sub">好好吃饭</span>
+              <svg class="plate-sprig" viewBox="0 0 96 96" fill="none">
+                <path d="M17 77c17-21 35-38 59-52" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" />
+                <path d="M37 58c-1-13 4-21 14-25-1 12-5 20-14 25Z" fill="#76896a" stroke="#76896a" stroke-width="1.5" />
+                <path d="M51 47c10-2 18 2 22 10-9 0-17-3-22-10Z" fill="#94a384" stroke="#94a384" stroke-width="1.5" />
+                <path d="M30 66c-9 0-15 5-17 13 9 0 15-4 17-13Z" fill="#a7b497" stroke="#a7b497" stroke-width="1.5" />
+              </svg>
+            </div>
+            <span class="art-stamp">NO. 01</span>
+          </div>
+        </section>
+
+        <section class="week-preview" aria-labelledby="weekPreviewTitle">
+          <div class="week-preview-head">
+            <div>
+              <p class="section-kicker"><span aria-hidden="true"></span>AT A GLANCE</p>
+              <h2 id="weekPreviewTitle">本周预览</h2>
+            </div>
+            <div class="week-preview-meta">
+              <strong id="weekPreviewRange">11月2日 — 8日</strong>
+              <span id="weekPreviewHint">已安排 0 顿 · 预计 ¥0.00</span>
+            </div>
+          </div>
+          <div class="week-preview-grid" id="weekPreview"></div>
+        </section>
+
+        <div class="content-grid">
+          <section class="planner" aria-labelledby="plannerTitle">
+            <div class="planner-head">
+              <div>
+                <p class="section-kicker"><span aria-hidden="true"></span>WEEKLY MENU</p>
+                <h2 id="plannerTitle">本周菜单</h2>
+              </div>
+              <div class="week-controls" aria-label="切换周">
+                <button class="week-arrow" type="button" id="prevWeekButton" aria-label="上一周">
+                  <svg aria-hidden="true"><use href="#i-chevron-left"></use></svg>
+                </button>
+                <div class="week-range">
+                  <strong id="weekRange">10月26日 — 11月1日</strong>
+                  <span id="weekHint">已排 0 / 7 天</span>
+                </div>
+                <button class="week-arrow" type="button" id="nextWeekButton" aria-label="下一周">
+                  <svg aria-hidden="true"><use href="#i-chevron-right"></use></svg>
+                </button>
+                <button class="today-button" type="button" id="todayButton" hidden>回到本周</button>
+              </div>
+            </div>
+
+            <div class="week-grid" id="weekGrid"></div>
+            <p class="scroll-hint" aria-hidden="true">← 左右滑动看一周 →</p>
+            <p class="planner-hint">点任意一天，安排这顿。</p>
+
+          </section>
+
+          <aside class="side-rail" aria-label="食物清单">
+            <section class="panel wishlist-panel" aria-labelledby="wishlistTitle">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">TO-EAT LIST</p>
+                  <h2 id="wishlistTitle">
+                    想吃清单
+                    <span class="count-badge" id="wishCount">0</span>
+                  </h2>
+                </div>
+                <button class="round-add" type="button" id="addWishButton" aria-label="添加想吃的东西">
+                  <svg aria-hidden="true"><use href="#i-plus"></use></svg>
+                </button>
+              </div>
+              <p class="panel-desc">先记下来，不急着决定哪天吃。</p>
+              <div class="wishlist" id="wishlist"></div>
+            </section>
+
+            <section class="panel pantry-panel" aria-labelledby="pantryTitle">
+              <div class="panel-head">
+                <div>
+                  <p class="panel-kicker">IN THE KITCHEN</p>
+                  <h2 id="pantryTitle">
+                    现在有什么
+                    <span class="count-badge" id="pantryCount">0</span>
+                  </h2>
+                </div>
+                <button class="round-add" type="button" id="addPantryButton" aria-label="添加手边的食物">
+                  <svg aria-hidden="true"><use href="#i-plus"></use></svg>
+                </button>
+              </div>
+              <p class="panel-desc">冰箱、柜子里能直接吃或用掉的东西。</p>
+              <div class="pantry-list" id="pantryList"></div>
+            </section>
+          </aside>
+        </div>
+      </main>
+
+      <footer class="site-footer">
+        <span>饭桌 · 小账本</span>
+        <span id="lastSaved">正在和小账本同步</span>
+      </footer>
+    </div>
+
+    <dialog class="modal" id="mealDialog" aria-labelledby="mealDialogTitle">
+      <div class="modal-card">
+        <div class="modal-head">
+          <div>
+            <p class="modal-kicker">ADD TO PLAN</p>
+            <h2 id="mealDialogTitle">安排这顿</h2>
+          </div>
+          <button class="modal-close" type="button" data-close aria-label="关闭">
+            <svg aria-hidden="true"><use href="#i-x"></use></svg>
+          </button>
+        </div>
+
+        <form id="mealForm" novalidate>
+          <label class="field">
+            <span>吃什么</span>
+            <input id="mealTitle" type="text" maxlength="80" placeholder="例如：番茄炒蛋" autocomplete="off" required />
+          </label>
+          <div class="suggestion-row" id="mealSuggestions" hidden></div>
+
+          <div class="field-row">
+            <label class="field">
+              <span>安排在哪天</span>
+              <select id="mealDate"></select>
+            </label>
+
+            <label class="field">
+              <span>这顿花费 <small>可选 · 元</small></span>
+              <input
+                id="mealCost"
+                type="number"
+                inputmode="decimal"
+                min="0"
+                max="999999.99"
+                step="0.01"
+                placeholder="例如：35.00"
+              />
+            </label>
+          </div>
+
+          <label class="field">
+            <span>备注 <small>可选</small></span>
+            <textarea id="mealNote" rows="2" maxlength="160" placeholder="想怎么吃、和谁吃、要不要买菜……"></textarea>
+          </label>
+
+          <p class="form-error" id="mealError" hidden>先写一下要吃什么。</p>
+
+          <div class="modal-actions">
+            <div class="meal-remove-actions" id="mealRemoveActions" hidden>
+              <button class="btn btn-danger" type="button" id="deleteMealButton">
+                <svg aria-hidden="true"><use href="#i-trash"></use></svg>
+                删掉这顿
+              </button>
+              <button class="btn btn-danger-soft" type="button" id="deleteMealToWishButton">删掉并添加到想吃</button>
+              <button class="btn btn-danger-soft" type="button" id="deleteMealToPantryButton">删掉并添加到柜子里</button>
+            </div>
+            <span class="spacer"></span>
+            <button class="btn btn-ghost" type="button" data-close>取消</button>
+            <button class="btn btn-primary" type="submit" id="saveMealButton">放进菜单</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+
+    <dialog class="modal" id="wishDialog" aria-labelledby="wishDialogTitle">
+      <div class="modal-card">
+        <div class="modal-head">
+          <div>
+            <p class="modal-kicker">CRAVING NOTES</p>
+            <h2 id="wishDialogTitle">记下想吃的</h2>
+          </div>
+          <button class="modal-close" type="button" data-close aria-label="关闭">
+            <svg aria-hidden="true"><use href="#i-x"></use></svg>
+          </button>
+        </div>
+
+        <form id="wishForm" novalidate>
+          <label class="field">
+            <span>想吃什么</span>
+            <input id="wishName" type="text" maxlength="80" placeholder="例如：酸汤肥牛" autocomplete="off" required />
+          </label>
+
+          <label class="field">
+            <span>价格 <small>可选 · 元</small></span>
+            <input
+              id="wishPrice"
+              type="number"
+              inputmode="decimal"
+              min="0"
+              max="999999.99"
+              step="0.01"
+              placeholder="例如：45.00"
+            />
+          </label>
+
+          <label class="field">
+            <span>备注 <small>可选</small></span>
+            <textarea id="wishNote" rows="3" maxlength="160" placeholder="哪家的、什么口味、和谁一起吃……"></textarea>
+          </label>
+
+          <p class="form-error" id="wishError" hidden>先写一下想吃什么。</p>
+
+          <div class="modal-actions">
+            <button class="btn btn-danger" type="button" id="deleteWishButton" hidden>
+              <svg aria-hidden="true"><use href="#i-trash"></use></svg>
+              删除
+            </button>
+            <span class="spacer"></span>
+            <button class="btn btn-ghost" type="button" data-close>取消</button>
+            <button class="btn btn-primary" type="submit" id="saveWishButton">记下来</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+
+    <dialog class="modal" id="pantryDialog" aria-labelledby="pantryDialogTitle">
+      <div class="modal-card">
+        <div class="modal-head">
+          <div>
+            <p class="modal-kicker">IN THE KITCHEN</p>
+            <h2 id="pantryDialogTitle">记一样手边的</h2>
+          </div>
+          <button class="modal-close" type="button" data-close aria-label="关闭">
+            <svg aria-hidden="true"><use href="#i-x"></use></svg>
+          </button>
+        </div>
+
+        <form id="pantryForm" novalidate>
+          <label class="field">
+            <span>是什么</span>
+            <input id="pantryName" type="text" maxlength="80" placeholder="例如：鸡蛋、牛奶、冻饺子" autocomplete="off" required />
+          </label>
+
+          <div class="field-row">
+            <label class="field">
+              <span>有多少 <small>可选</small></span>
+              <input id="pantryAmount" type="text" maxlength="30" placeholder="例如：6 个 / 2 盒" />
+            </label>
+
+            <label class="field">
+              <span>价格 <small>可选 · 元</small></span>
+              <input
+                id="pantryPrice"
+                type="number"
+                inputmode="decimal"
+                min="0"
+                max="999999.99"
+                step="0.01"
+                placeholder="例如：12.50"
+              />
+            </label>
+          </div>
+
+          <label class="field">
+            <span>到期日 <small>可选</small></span>
+            <input id="pantryExpiry" type="date" />
+          </label>
+
+          <label class="field">
+            <span>备注 <small>可选</small></span>
+            <textarea id="pantryNote" rows="2" maxlength="160" placeholder="开封了、只剩一点、要做某道菜……"></textarea>
+          </label>
+
+          <p class="form-error" id="pantryError" hidden>先写一下这是什么。</p>
+
+          <div class="modal-actions">
+            <button class="btn btn-danger" type="button" id="deletePantryButton" hidden>
+              <svg aria-hidden="true"><use href="#i-trash"></use></svg>
+              删除
+            </button>
+            <span class="spacer"></span>
+            <button class="btn btn-ghost" type="button" data-close>取消</button>
+            <button class="btn btn-primary" type="submit" id="savePantryButton">收进清单</button>
+          </div>
+        </form>
+      </div>
+    </dialog>
+
+    <div class="toast" id="toast" role="status" aria-live="polite">
+      <span class="toast-message" id="toastMessage"></span>
+      <button class="toast-action" type="button" id="toastAction" hidden>撤销</button>
+    </div>
+
+    <input id="importInput" type="file" accept="application/json,.json" hidden />
+    <script src="./app.js" defer></script>
+  </body>
+</html>

@@ -1,0 +1,276 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>小账本</title>
+<meta name="theme-color" content="#E8EDF5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="小账本">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+<div id="login" class="login hidden">
+  <form id="login-form" class="login-card">
+    <img class="logo-img" src="/icon-192.png" alt="">
+    <h1>小账本</h1>
+    <p class="muted">输入访问密码</p>
+    <input id="password" type="password" placeholder="密码" autocomplete="current-password" required>
+    <button type="submit" class="btn primary">进入</button>
+    <p id="login-error" class="error"></p>
+  </form>
+</div>
+
+<div id="app" class="app hidden">
+  <header class="topbar">
+    <div class="brand"><img class="brand-icon" src="/icon-192.png" alt=""><span>小账本</span></div>
+    <div id="top-meta" class="top-meta"></div>
+  </header>
+
+  <main>
+    <section id="view-entry" class="view">
+      <div class="seg" id="type-seg">
+        <button type="button" data-type="1" class="active">支出</button>
+        <button type="button" data-type="2">收入</button>
+      </div>
+
+      <div class="glass entry-card">
+        <div class="amount-wrap">
+          <span class="currency">¥</span>
+          <input id="amount" inputmode="decimal" placeholder="0.00" autocomplete="off" enterkeyhint="done">
+        </div>
+      </div>
+
+      <div class="glass cat-card">
+        <div id="cat-grid" class="cat-grid"></div>
+        <div id="subcat-row" class="subcat-row hidden"></div>
+      </div>
+
+      <div class="entry-foot">
+        <input id="date" type="date" class="date-input">
+        <button id="btn-save" class="btn primary">记一笔</button>
+      </div>
+    </section>
+
+    <section id="view-list" class="view hidden">
+      <div class="monthbar">
+        <button type="button" id="prev-month" class="icon-btn">‹</button>
+        <div id="month-label" class="month-label"></div>
+        <button type="button" id="next-month" class="icon-btn">›</button>
+      </div>
+      <div class="sumrow" id="list-summary"></div>
+      <div class="search-wrap">
+        <input id="search" placeholder="搜索全部账单：分类、子类或备注" autocomplete="off">
+      </div>
+      <div class="list-tools">
+        <button type="button" class="mini-btn" id="btn-select">多选</button>
+      </div>
+      <div id="bill-list"></div>
+    </section>
+
+    <section id="view-stats" class="view hidden">
+      <div class="monthbar">
+        <button type="button" id="prev-month-2" class="icon-btn">‹</button>
+        <div id="month-label-2" class="month-label"></div>
+        <button type="button" id="next-month-2" class="icon-btn">›</button>
+      </div>
+      <div class="cards" id="stat-cards"></div>
+      <div class="card week-card">
+        <div class="card-head">
+          <h3>近 7 天花销</h3>
+          <span class="delta-pill" id="week-compare">—</span>
+        </div>
+        <div class="week-head">
+          <div class="week-total" id="week-total">¥0.00</div>
+          <div class="week-meta"><span id="week-range"></span><br><span id="week-prev"></span></div>
+        </div>
+        <div class="week-bars" id="week-bars"></div>
+      </div>
+      <div class="card savings-card">
+        <div class="card-head">
+          <h3>攒钱</h3>
+          <button type="button" class="mini-btn" id="btn-goal">设目标</button>
+        </div>
+        <div class="savings-main">
+          <div><span class="savings-cur">¥</span><span class="savings-total" id="savings-total">0.00</span></div>
+          <div class="savings-pct" id="savings-pct">—</div>
+        </div>
+        <div class="progress"><div class="progress-fill" id="savings-fill"></div></div>
+        <div class="savings-sub" id="savings-sub">还没有设目标</div>
+        <div class="savings-actions">
+          <button type="button" class="mini-btn primary" id="btn-deposit">＋ 存一笔</button>
+          <button type="button" class="mini-btn" id="btn-withdraw">取出一笔</button>
+        </div>
+        <div class="savings-list" id="savings-list"></div>
+      </div>
+      <div class="card">
+        <h3>支出排行</h3>
+        <div id="cat-bars"></div>
+      </div>
+      <div class="card">
+        <h3>近 6 个月</h3>
+        <div id="trend" class="trend"></div>
+      </div>
+      <div class="card">
+        <h3>收入构成</h3>
+        <div id="income-list"></div>
+      </div>
+    </section>
+
+    <section id="view-fanzhuo" class="view hidden">
+      <iframe id="fanzhuo-frame" class="fanzhuo-frame" data-src="/fanzhuo/?embed=1" title="饭桌"></iframe>
+    </section>
+
+    <section id="view-me" class="view hidden">
+      <div class="card list-card">
+        <button type="button" class="row" id="btn-cats"><span>分类管理</span><span class="chev">›</span></button>
+        <button type="button" class="row" id="btn-import"><span>导入 CSV</span><span class="chev">›</span></button>
+        <button type="button" class="row" id="btn-export"><span>导出 CSV</span><span class="chev">›</span></button>
+        <button type="button" class="row" id="btn-export-savings"><span>导出攒钱 CSV</span><span class="chev">›</span></button>
+      </div>
+      <div class="card">
+        <div class="muted small" id="me-meta">—</div>
+      </div>
+      <button type="button" class="btn ghost" id="btn-logout">退出登录</button>
+      <input type="file" id="file-input" accept=".csv,text/csv" class="hidden">
+    </section>
+  </main>
+
+  <nav class="tabbar">
+    <button type="button" data-view="entry" class="active">
+      <svg viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg><span>记账</span>
+    </button>
+    <button type="button" data-view="list">
+      <svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h16M4 18h10"/></svg><span>明细</span>
+    </button>
+    <button type="button" data-view="stats">
+      <svg viewBox="0 0 24 24"><path d="M5 19V9M12 19V5M19 19v-7"/></svg><span>统计</span>
+    </button>
+    <button type="button" data-view="fanzhuo">
+      <svg viewBox="0 0 24 24"><path d="M4 11h16a8 8 0 0 1-16 0Z"/><path d="M8 8c0-2 1.4-3 2.6-3M13.4 8c0-2 1.4-3 2.6-3"/></svg><span>饭桌</span>
+    </button>
+    <button type="button" data-view="me">
+      <svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.5 3-5.5 7-5.5s7 2 7 5.5"/></svg><span>我的</span>
+    </button>
+  </nav>
+</div>
+
+<div id="batchbar" class="batchbar hidden">
+  <span class="batch-count" id="batch-count">已选 0 笔</span>
+  <button type="button" class="mini-btn" id="batch-all">全选</button>
+  <button type="button" class="mini-btn danger" id="batch-delete">删除</button>
+  <button type="button" class="mini-btn primary" id="batch-move">移动</button>
+</div>
+
+<div id="sheet-edit" class="sheet hidden">
+  <div class="sheet-mask" data-close></div>
+  <div class="sheet-body">
+    <div class="sheet-head">
+      <button type="button" class="text-btn danger" id="edit-delete">删除</button>
+      <span class="sheet-title">编辑账单</span>
+      <button type="button" class="text-btn" data-close>关闭</button>
+    </div>
+    <div class="seg small" id="edit-type-seg">
+      <button type="button" data-type="1" class="active">支出</button>
+      <button type="button" data-type="2">收入</button>
+    </div>
+    <div class="amount-wrap small">
+      <span class="currency">¥</span>
+      <input id="edit-amount" inputmode="decimal" autocomplete="off">
+    </div>
+    <label class="field"><span>分类</span><select id="edit-category"></select></label>
+    <label class="field"><span>日期</span><input id="edit-date" type="date"></label>
+    <label class="field"><span>时间</span><input id="edit-time" type="time"></label>
+    <label class="field"><span>子类</span><select id="edit-subcategory"></select></label>
+    <button type="button" class="btn primary" id="edit-save">保存</button>
+  </div>
+</div>
+
+<div id="sheet-cats" class="sheet hidden">
+  <div class="sheet-mask" data-close></div>
+  <div class="sheet-body">
+    <div class="sheet-head">
+      <span></span>
+      <span class="sheet-title">分类管理</span>
+      <button type="button" class="text-btn" data-close>关闭</button>
+    </div>
+    <div id="cats-list"></div>
+    <div class="add-cat">
+      <div class="add-cat-row">
+        <input id="new-emoji" class="emoji-input" maxlength="4" value="📌">
+        <input id="new-name" placeholder="新分类名称" maxlength="12">
+        <select id="new-type"><option value="1">支出</option><option value="2">收入</option></select>
+      </div>
+      <div class="add-cat-row">
+        <select id="new-parent" class="parent-select"><option value="">不挂上级（新建大类）</option></select>
+      </div>
+      <button type="button" class="btn ghost small" id="btn-add-cat">添加分类</button>
+    </div>
+  </div>
+</div>
+
+<div id="sheet-savings" class="sheet hidden">
+  <div class="sheet-mask" data-close></div>
+  <div class="sheet-body">
+    <div class="sheet-head">
+      <span></span>
+      <span class="sheet-title" id="savings-title">存一笔</span>
+      <button type="button" class="text-btn" data-close>关闭</button>
+    </div>
+    <div class="seg small" id="savings-dir-seg">
+      <button type="button" data-dir="in" class="active">存入</button>
+      <button type="button" data-dir="out">取出</button>
+    </div>
+    <div class="amount-wrap small">
+      <span class="currency">¥</span>
+      <input id="savings-amount" inputmode="decimal" autocomplete="off" placeholder="0.00">
+    </div>
+    <label class="field" id="savings-date-field"><span>日期</span><input id="savings-date" type="date"></label>
+    <label class="field" id="savings-note-field"><span>备注</span><input id="savings-note" maxlength="60" placeholder="可选"></label>
+    <p class="muted small savings-hint" id="savings-hint"></p>
+    <button type="button" class="btn primary" id="savings-save">保存</button>
+  </div>
+</div>
+
+<div id="sheet-sub" class="sheet hidden">
+  <div class="sheet-mask" data-close></div>
+  <div class="sheet-body">
+    <div class="sheet-head">
+      <span></span>
+      <span class="sheet-title">添加子类</span>
+      <button type="button" class="text-btn" data-close>关闭</button>
+    </div>
+    <p class="muted small" id="sub-parent-hint"></p>
+    <div class="add-cat-row">
+      <input id="sub-emoji" class="emoji-input" maxlength="4" value="📌">
+      <input id="sub-name" placeholder="子类名称" maxlength="12">
+    </div>
+    <button type="button" class="btn primary" id="sub-save">添加</button>
+  </div>
+</div>
+
+<div id="sheet-batch" class="sheet hidden">
+  <div class="sheet-mask" data-close></div>
+  <div class="sheet-body">
+    <div class="sheet-head">
+      <span></span>
+      <span class="sheet-title">批量移动</span>
+      <button type="button" class="text-btn" data-close>关闭</button>
+    </div>
+    <p class="muted small" id="batch-move-hint"></p>
+    <label class="field"><span>分类</span><select id="batch-category"></select></label>
+    <label class="field"><span>子类</span><select id="batch-subcategory"></select></label>
+    <button type="button" class="btn primary" id="batch-save">移动到这里</button>
+  </div>
+</div>
+
+<div id="toast" class="toast"></div>
+
+<script src="/app.js"></script>
+</body>
+</html>

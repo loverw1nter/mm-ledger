@@ -1,0 +1,2 @@
+APP_PASSWORD=换成你的密码
+SESSION_SECRET=换成一段长随机字符串
