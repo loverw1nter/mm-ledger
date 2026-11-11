@@ -308,6 +308,24 @@
   </div>
 </div>
 
+<div id="sheet-average" class="sheet hidden">
+  <div class="sheet-mask" data-close></div>
+  <div class="sheet-body">
+    <div class="sheet-head">
+      <span></span>
+      <span class="sheet-title">日均计算</span>
+      <button type="button" class="text-btn" data-close>关闭</button>
+    </div>
+    <p class="muted small">勾选这个月超过 ¥100 的支出，不计入日均。</p>
+    <div class="avg-summary" id="avg-summary"></div>
+    <div class="avg-actions" id="avg-actions">
+      <button type="button" class="mini-btn" id="avg-select-all">全选</button>
+      <button type="button" class="mini-btn" id="avg-clear">清空</button>
+    </div>
+    <div id="avg-list"></div>
+  </div>
+</div>
+
 <div id="toast" class="toast"></div>
 
 <script src="/app.js"></script>

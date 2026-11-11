@@ -239,6 +239,25 @@ body.fanzhuo-modal-open::after{display:none}
 .stat .v{font-size:15.5px;font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .stat .v.green{color:var(--income)}
 .stat .sub{margin-top:3px;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
+.stat button.avg-link{display:flex;align-items:center;gap:2px;width:100%;padding:0;border:0;background:none;text-align:left;font:inherit;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums;letter-spacing:-.01em;cursor:pointer}
+.avg-chev{font-size:13px;line-height:1;color:var(--faint);transform:translateY(-1px)}
+.avg-link:active .avg-chev{color:var(--accent)}
+.avg-summary{display:grid;gap:7px;margin:8px 0 12px;padding:13px 15px;border-radius:16px;background:var(--glass-soft);box-shadow:var(--shadow-inset-sm);font-size:12px;color:var(--muted)}
+.avg-summary div{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.avg-summary b{color:var(--ink-strong);font-variant-numeric:tabular-nums}
+.avg-summary .final{padding-top:8px;border-top:1px solid var(--line);font-weight:600;color:var(--ink-strong)}
+.avg-summary .final b{font-size:17px;letter-spacing:-.02em}
+.avg-summary .avg-days{justify-content:flex-end;font-size:10px;color:var(--faint)}
+.avg-actions{display:flex;gap:8px;margin-bottom:10px}
+.avg-actions .mini-btn{flex:1;padding:8px 10px}
+.avg-row{display:flex;align-items:center;gap:11px;padding:10px 12px;margin-bottom:8px;border-radius:16px;background:var(--glass);box-shadow:var(--shadow-sm);cursor:pointer}
+.avg-row:active{background:var(--glass-soft)}
+.avg-row input{width:20px;height:20px;flex:0 0 auto;accent-color:#7d93b4}
+.avg-row-main{display:flex;flex-direction:column;gap:2px;flex:1;min-width:0}
+.avg-row-main b,.avg-row-main small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.avg-row-main b{font-size:13px;font-weight:600;color:var(--ink-strong)}
+.avg-row-main small{font-size:10.5px;color:var(--muted)}
+.avg-row-amt{flex:0 0 auto;font-size:13px;font-weight:600;font-variant-numeric:tabular-nums;color:var(--ink-strong)}
 
 .bar-row{display:flex;align-items:center;gap:10px;padding:7px 0}
 .bar-row .nm{width:78px;font-size:12.5px;flex:0 0 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text,#354255)}

@@ -18,6 +18,8 @@ const state = {
   selected: new Set(),
   batchType: 1,
   me: null,
+  ignoredBills: new Map(),
+  ignoredMonth: null,
 };
 
 function pad(n) { return String(n).padStart(2, "0"); }
@@ -477,6 +479,88 @@ function averageDayCount() {
   return 1;
 }
 
+let averageBills = [];
+
+function resetIgnoredIfNeeded() {
+  if (state.ignoredMonth !== state.month) {
+    state.ignoredMonth = state.month;
+    state.ignoredBills.clear();
+  }
+}
+
+function ignoredAverageTotal() {
+  let total = 0;
+  for (const cents of state.ignoredBills.values()) total += Number(cents) || 0;
+  return total;
+}
+
+function averageExpenseTotal() {
+  const summary = state.stats && state.stats.summary;
+  const row = summary && summary.find((x) => x.type === 1);
+  return (row && row.total) || 0;
+}
+
+function averageDailyCents() {
+  return Math.max(0, averageExpenseTotal() - ignoredAverageTotal()) / Math.max(1, averageDayCount());
+}
+
+function updateAverageLine() {
+  const el = $("#avg-link");
+  if (!el) return;
+  el.innerHTML = `日均 ¥${fmtMoney(averageDailyCents())}<span class="avg-chev" aria-hidden="true">›</span>`;
+}
+
+function renderAverageSheet() {
+  const days = Math.max(1, averageDayCount());
+  const expense = averageExpenseTotal();
+  const ignored = ignoredAverageTotal();
+  const adjusted = Math.max(0, expense - ignored);
+  const allSelected = averageBills.length > 0 && averageBills.every((b) => state.ignoredBills.has(b.id));
+  $("#avg-summary").innerHTML = `
+    <div><span>本月支出</span><b>¥${fmtMoney(expense)}</b></div>
+    <div><span>超过 ¥100</span><b>${averageBills.length} 笔</b></div>
+    <div><span>已忽略</span><b>${state.ignoredBills.size} 笔 · ¥${fmtMoney(ignored)}</b></div>
+    <div class="final"><span>忽略后日均</span><b>¥${fmtMoney(adjusted / days)}</b></div>
+    <div class="avg-days">按 ${days} 天计算</div>`;
+  $("#avg-select-all").textContent = allSelected ? "取消全选" : "全选";
+  if (!averageBills.length) {
+    $("#avg-actions").classList.add("hidden");
+    $("#avg-list").innerHTML = '<div class="empty">这个月没有超过 ¥100 的支出</div>';
+    return;
+  }
+  $("#avg-actions").classList.remove("hidden");
+  $("#avg-list").innerHTML = averageBills.map((b) => {
+    const checked = state.ignoredBills.has(b.id);
+    const title = [b.category, b.subcategory].filter(Boolean).join(" · ");
+    const details = [fmtDateLabel(b.date), b.note].filter(Boolean).join(" · ");
+    return `<label class="avg-row">
+      <input type="checkbox" data-avg-id="${b.id}" data-avg-cents="${b.amount_cents}" ${checked ? "checked" : ""}>
+      <span class="avg-row-main"><b>${esc(b.emoji || "📌")} ${esc(title)}</b><small>${esc(details)}</small></span>
+      <span class="avg-row-amt">¥${fmtMoney(b.amount_cents)}</span>
+    </label>`;
+  }).join("");
+}
+
+async function openAverageSheet() {
+  resetIgnoredIfNeeded();
+  $("#sheet-average").classList.remove("hidden");
+  $("#avg-summary").innerHTML = '<div><span>加载中…</span></div>';
+  $("#avg-list").innerHTML = '<div class="empty">加载中…</div>';
+  $("#avg-actions").classList.add("hidden");
+  try {
+    const data = await api("/api/bills?month=" + state.month + "&type=1");
+    averageBills = (data.bills || []).filter((b) => b.amount_cents > 10000);
+    const valid = new Set(averageBills.map((b) => b.id));
+    for (const id of Array.from(state.ignoredBills.keys())) {
+      if (!valid.has(id)) state.ignoredBills.delete(id);
+    }
+    renderAverageSheet();
+    updateAverageLine();
+  } catch (err) {
+    $("#avg-list").innerHTML = `<div class="empty">${esc(err.message)}</div>`;
+  }
+}
+
 function renderStats() {
   $("#month-label-2").textContent = fmtMonth(state.month);
   const s = state.stats;
@@ -487,10 +571,10 @@ function renderStats() {
   const get = (t) => (s.summary.find((x) => x.type === t) || { total: 0, n: 0 });
   const expense = get(1).total || 0;
   const income = get(2).total || 0;
-  const dailyAverage = expense / Math.max(1, averageDayCount());
+  resetIgnoredIfNeeded();
 
   $("#stat-cards").innerHTML = `
-    <div class="stat"><div class="k">支出</div><div class="v">¥${fmtMoney(expense)}</div><div class="sub">日均 ¥${fmtMoney(dailyAverage)}</div></div>
+    <div class="stat"><div class="k">支出</div><div class="v">¥${fmtMoney(expense)}</div><button type="button" class="sub avg-link" id="avg-link" title="选择要忽略的大额支出">日均 ¥${fmtMoney(averageDailyCents())}<span class="avg-chev" aria-hidden="true">›</span></button></div>
     <div class="stat"><div class="k">收入</div><div class="v green">¥${fmtMoney(income)}</div></div>
     <div class="stat"><div class="k">结余</div><div class="v">¥${fmtMoney(income - expense)}</div></div>`;
 
@@ -577,6 +661,35 @@ $("#cat-bars").addEventListener("keydown", (event) => {
   if (!row) return;
   event.preventDefault();
   openCategoryBills(Number(row.dataset.catId), row.dataset.catName || "", row.dataset.catEmoji || "");
+});
+
+$("#stat-cards").addEventListener("click", (event) => {
+  if (event.target.closest("#avg-link")) openAverageSheet();
+});
+
+$("#avg-list").addEventListener("change", (event) => {
+  const box = event.target.closest("input[data-avg-id]");
+  if (!box) return;
+  const id = Number(box.dataset.avgId);
+  const cents = Number(box.dataset.avgCents) || 0;
+  if (box.checked) state.ignoredBills.set(id, cents);
+  else state.ignoredBills.delete(id);
+  renderAverageSheet();
+  updateAverageLine();
+});
+
+$("#avg-select-all").addEventListener("click", () => {
+  const allSelected = averageBills.length > 0 && averageBills.every((b) => state.ignoredBills.has(b.id));
+  if (allSelected) state.ignoredBills.clear();
+  else averageBills.forEach((b) => state.ignoredBills.set(b.id, b.amount_cents));
+  renderAverageSheet();
+  updateAverageLine();
+});
+
+$("#avg-clear").addEventListener("click", () => {
+  state.ignoredBills.clear();
+  renderAverageSheet();
+  updateAverageLine();
 });
 
 function renderWeek() {
