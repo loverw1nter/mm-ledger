@@ -14,6 +14,7 @@
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const EMBEDDED = new URLSearchParams(window.location.search).get('embed') === '1';
+  const COARSE_POINTER = window.matchMedia ? window.matchMedia('(pointer: coarse)').matches : false;
   if (EMBEDDED) document.body.classList.add('is-embedded');
   function notifyParent(message) {
     if (EMBEDDED && window.parent !== window) window.parent.postMessage(message, window.location.origin);
@@ -102,6 +103,11 @@
   let editingPantryId = null;
   let toastTimer = null;
   let toastActionHandler = null;
+  let mealSource = null;
+  let mealPress = null;
+  let mealDrag = null;
+  let lastDropTarget = null;
+  let suppressMealClick = false;
 
   function escapeHtml(value) {
     return String(value).replace(/[&<>"']/g, (character) => ESCAPE_MAP[character]);
@@ -507,6 +513,221 @@
     };
   }
 
+  function blurActiveElement() {
+    const active = document.activeElement;
+    if (active && active !== document.body && typeof active.blur === 'function') active.blur();
+  }
+
+  function focusToday(options = {}) {
+    const behavior = options.behavior === 'auto' ? 'auto' : 'smooth';
+    const today = new Date();
+    const todayKey = dateKey(today);
+    if (!isCurrentWeek()) {
+      weekStart = startOfWeek(today);
+      renderAll();
+    }
+    window.requestAnimationFrame(() => {
+      const card = dom.weekGrid.querySelector('[data-day-date="' + todayKey + '"]');
+      if (!card) return;
+      if (dom.weekGrid.scrollWidth <= dom.weekGrid.clientWidth + 2) return;
+      const gridRect = dom.weekGrid.getBoundingClientRect();
+      const cardRect = card.getBoundingClientRect();
+      dom.weekGrid.scrollTo({
+        left: dom.weekGrid.scrollLeft + cardRect.left - gridRect.left,
+        behavior,
+      });
+    });
+  }
+
+  function consumeMealSource(source) {
+    if (!source) return null;
+    if (source.type === 'wishlist') {
+      const index = state.wishlist.findIndex((item) => item.id === source.id);
+      if (index < 0) return null;
+      const [item] = state.wishlist.splice(index, 1);
+      return { type: 'wishlist', index, item };
+    }
+    if (source.type === 'pantry') {
+      const index = state.pantry.findIndex((item) => item.id === source.id);
+      if (index < 0) return null;
+      const item = state.pantry[index];
+      const decrement = getAmountDecrement(item.amount);
+      if (decrement && !decrement.isLast) {
+        state.pantry[index] = { ...item, amount: decrement.amount };
+        return { type: 'pantry', index, item: null };
+      }
+      state.pantry.splice(index, 1);
+      return { type: 'pantry', index, item };
+    }
+    return null;
+  }
+
+  function getDropTarget(x, y) {
+    const element = document.elementFromPoint(x, y);
+    if (!element) return null;
+    const meal = element.closest('.meal-entry.has-meal[data-meal-date][data-meal-id]');
+    if (meal) {
+      const rect = meal.getBoundingClientRect();
+      return {
+        date: meal.dataset.mealDate,
+        id: meal.dataset.mealId,
+        after: y > rect.top + rect.height / 2,
+        element: meal,
+      };
+    }
+    const day = element.closest('[data-day-date]');
+    if (day) return { date: day.dataset.dayDate, id: null, after: true, element: day };
+    return null;
+  }
+
+  function beginMealPress(event) {
+    if (mealDrag || event.isPrimary === false) return;
+    if (event.pointerType === 'mouse' && event.button !== 0) return;
+    const button = event.target.closest('.meal-entry.has-meal[data-meal-date][data-meal-id]');
+    if (!button) return;
+    const rect = button.getBoundingClientRect();
+    const press = {
+      pointerId: event.pointerId,
+      date: button.dataset.mealDate,
+      id: button.dataset.mealId,
+      button,
+      startX: event.clientX,
+      startY: event.clientY,
+      offsetX: event.clientX - rect.left,
+      offsetY: event.clientY - rect.top,
+      timer: 0,
+    };
+    press.timer = window.setTimeout(() => startMealDrag(press), 450);
+    mealPress = press;
+  }
+
+  function startMealDrag(press) {
+    if (mealPress !== press) return;
+    if (!press.button.isConnected) {
+      mealPress = null;
+      return;
+    }
+    const rect = press.button.getBoundingClientRect();
+    const clone = press.button.cloneNode(true);
+    clone.classList.remove('is-drop-target');
+    clone.classList.add('meal-drag-clone');
+    clone.style.width = rect.width + 'px';
+    clone.style.height = rect.height + 'px';
+    clone.style.left = rect.left + 'px';
+    clone.style.top = rect.top + 'px';
+    document.body.appendChild(clone);
+    press.button.classList.add('is-drag-source');
+    document.body.classList.add('is-meal-dragging');
+    mealDrag = { ...press, clone };
+    lastDropTarget = null;
+    suppressMealClick = true;
+    window.clearTimeout(press.timer);
+    if (navigator.vibrate) {
+      try {
+        navigator.vibrate(12);
+      } catch (error) {}
+    }
+  }
+
+  function updateDropTarget(x, y) {
+    const target = getDropTarget(x, y);
+    if (lastDropTarget && lastDropTarget.element !== (target && target.element)) {
+      lastDropTarget.element.classList.remove('is-drop-target');
+    }
+    lastDropTarget = target;
+    if (target && target.element) target.element.classList.add('is-drop-target');
+  }
+
+  function moveMealPress(event) {
+    if (mealPress && !mealDrag) {
+      const dx = event.clientX - mealPress.startX;
+      const dy = event.clientY - mealPress.startY;
+      if (Math.hypot(dx, dy) > 8) {
+        window.clearTimeout(mealPress.timer);
+        mealPress = null;
+      }
+    }
+    if (!mealDrag || event.pointerId !== mealDrag.pointerId) return;
+    if (event.cancelable) event.preventDefault();
+    mealDrag.clone.style.left = event.clientX - mealDrag.offsetX + 'px';
+    mealDrag.clone.style.top = event.clientY - mealDrag.offsetY + 'px';
+    updateDropTarget(event.clientX, event.clientY);
+  }
+
+  function cleanupMealDrag() {
+    if (mealDrag) {
+      if (mealDrag.clone && mealDrag.clone.parentNode) mealDrag.clone.remove();
+      if (mealDrag.button) mealDrag.button.classList.remove('is-drag-source');
+    }
+    if (lastDropTarget && lastDropTarget.element) {
+      lastDropTarget.element.classList.remove('is-drop-target');
+    }
+    document.body.classList.remove('is-meal-dragging');
+    mealDrag = null;
+    lastDropTarget = null;
+    window.setTimeout(() => {
+      suppressMealClick = false;
+    }, 500);
+  }
+
+  function reorderMeal(fromDate, mealId, target) {
+    const source = state.meals[fromDate];
+    if (!Array.isArray(source)) return;
+    const fromIndex = source.findIndex((meal) => meal.id === mealId);
+    if (fromIndex < 0) return;
+
+    const targetList = state.meals[target.date] || [];
+    let targetIndex = targetList.length;
+    if (target.id) {
+      const overIndex = targetList.findIndex((meal) => meal.id === target.id);
+      if (overIndex >= 0) targetIndex = overIndex + (target.after ? 1 : 0);
+    }
+    if (fromDate === target.date) {
+      if (target.id === mealId) return;
+      if (targetIndex === fromIndex || targetIndex === fromIndex + 1) return;
+    }
+
+    const [meal] = source.splice(fromIndex, 1);
+    if (fromDate === target.date && targetIndex > fromIndex) targetIndex -= 1;
+    const destination = fromDate === target.date ? source : state.meals[target.date] || [];
+    destination.splice(Math.max(0, Math.min(targetIndex, destination.length)), 0, meal);
+    state.meals[target.date] = destination;
+    if (fromDate !== target.date && source.length === 0) delete state.meals[fromDate];
+    persist();
+    renderAll();
+    showToast('顺序已更新');
+  }
+
+  function finishMealPress(event) {
+    if (mealPress && !mealDrag) {
+      if (event.pointerId === mealPress.pointerId) {
+        window.clearTimeout(mealPress.timer);
+        mealPress = null;
+      }
+      return;
+    }
+    if (!mealDrag || event.pointerId !== mealDrag.pointerId) return;
+    const target = lastDropTarget || getDropTarget(event.clientX, event.clientY);
+    const fromDate = mealDrag.date;
+    const mealId = mealDrag.id;
+    cleanupMealDrag();
+    if (!target) return;
+    if (target.date === fromDate && target.id === mealId) return;
+    reorderMeal(fromDate, mealId, target);
+  }
+
+  function cancelMealPress() {
+    if (mealDrag) cleanupMealDrag();
+    else if (mealPress) {
+      window.clearTimeout(mealPress.timer);
+      mealPress = null;
+    }
+  }
+
+  function blockMealTouchScroll(event) {
+    if (mealDrag && event.cancelable) event.preventDefault();
+  }
+
   function renderAll() {
     renderWeek();
     renderWishlist();
@@ -621,7 +842,7 @@
         `;
 
         return `
-          <article class="${className}" style="animation-delay:${index * 34}ms">
+          <article class="${className}" data-day-date="${key}" style="animation-delay:${index * 34}ms">
             <div class="day-top">
               <span class="weekday">${WEEKDAYS[day.getDay()]}</span>
               <span class="day-date">${day.getMonth() + 1}.${pad2(day.getDate())}</span>
@@ -835,6 +1056,7 @@
     const dayHasMeals = (state.meals[date] || []).length > 0;
 
     editingMeal = meal ? { date, id: meal.id } : null;
+    mealSource = !meal && options.source ? { type: options.source.type, id: options.source.id } : null;
     dom.mealTitle.value = meal ? meal.title : clampText(options.prefillTitle, 80);
     dom.mealCost.value =
       meal && Number.isFinite(meal.cost) ? String(meal.cost) : prefillCost === null ? '' : String(prefillCost);
@@ -846,7 +1068,7 @@
     dom.mealRemoveActions.hidden = !meal;
     renderMealSuggestions(!meal);
     openDialog(dom.mealDialog);
-    window.setTimeout(() => dom.mealTitle.focus(), 35);
+    if (!COARSE_POINTER) window.setTimeout(() => dom.mealTitle.focus(), 35);
   }
 
   function removeMeal(reference) {
@@ -875,6 +1097,7 @@
     const targetDate = isValidDateKey(dom.mealDate.value) ? dom.mealDate.value : defaultMealDate();
     const wasEditing = Boolean(editingMeal);
     const existing = editingMeal ? findMeal(editingMeal.date, editingMeal.id) : null;
+    const consumed = wasEditing ? null : consumeMealSource(mealSource);
     const item = {
       id: existing ? existing.id : makeId(),
       title,
@@ -896,7 +1119,13 @@
     persist();
     renderAll();
     dom.mealDialog.close();
-    showToast(wasEditing ? `已更新：${title}` : `已放进菜单：${title}`);
+    mealSource = null;
+    const consumedHint = consumed
+      ? consumed.type === 'wishlist'
+        ? '，已从清单去掉'
+        : '，柜子已扣掉一份'
+      : '';
+    showToast(wasEditing ? `已更新：${title}` : `已放进菜单：${title}${consumedHint}`);
   }
 
   function deleteCurrentMeal() {
@@ -1030,6 +1259,7 @@
       prefillTitle: item.name,
       prefillNote: item.note,
       prefillCost: item.price,
+      source: { type: 'wishlist', id: item.id },
     });
   }
 
@@ -1257,12 +1487,23 @@
     }
 
     dom.weekGrid.addEventListener('click', (event) => {
+      if (suppressMealClick) {
+        suppressMealClick = false;
+        event.preventDefault();
+        return;
+      }
       const button = event.target.closest('[data-meal-date]');
       if (!button) return;
       const date = button.dataset.mealDate;
       const mealId = button.dataset.mealId || null;
       openMealDialog({ date, mealId });
     });
+
+    dom.weekGrid.addEventListener('pointerdown', beginMealPress);
+    document.addEventListener('pointermove', moveMealPress, { passive: false });
+    document.addEventListener('pointerup', finishMealPress);
+    document.addEventListener('pointercancel', cancelMealPress);
+    document.addEventListener('touchmove', blockMealTouchScroll, { passive: false });
 
     dom.addWishButton.addEventListener('click', () => openWishDialog());
     dom.addPantryButton.addEventListener('click', () => openPantryDialog());
@@ -1328,12 +1569,10 @@
         const item = findPantry(pantryButton.dataset.pantrySuggestionId);
         if (!item) return;
         dom.mealTitle.value = item.name;
-        const noteParts = [];
-        if (item.amount) noteParts.push(`手边有 ${item.amount}`);
-        if (item.note) noteParts.push(item.note);
-        if (noteParts.length) dom.mealNote.value = noteParts.join(' · ');
+        if (item.note) dom.mealNote.value = item.note;
         if (item.price !== null) dom.mealCost.value = String(item.price);
-        dom.mealTitle.focus();
+        mealSource = { type: 'pantry', id: item.id };
+        blurActiveElement();
         return;
       }
 
@@ -1342,9 +1581,10 @@
       const item = findWish(button.dataset.suggestionId);
       if (!item) return;
       dom.mealTitle.value = item.name;
-      dom.mealNote.value = item.note || dom.mealNote.value;
+      if (item.note) dom.mealNote.value = item.note;
       if (item.price !== null) dom.mealCost.value = String(item.price);
-      dom.mealTitle.focus();
+      mealSource = { type: 'wishlist', id: item.id };
+      blurActiveElement();
     });
 
     $$('[data-close]').forEach((button) => {
@@ -1359,6 +1599,7 @@
         editingMeal = null;
         editingWishId = null;
         editingPantryId = null;
+        mealSource = null;
         notifyParent({ type: 'fanzhuo:modal', open: false });
       });
     });
@@ -1387,7 +1628,12 @@
     window.addEventListener('online', () => {
       if (syncReady && (localDirty || syncError)) queueRemoteSave();
     });
-    syncFromCloud();
+    window.addEventListener('message', (event) => {
+      if (event.origin !== window.location.origin || !event.data) return;
+      if (event.data.type === 'fanzhuo:showToday') focusToday({ behavior: 'smooth' });
+    });
+    window.setTimeout(() => focusToday({ behavior: 'auto' }), 80);
+    syncFromCloud().finally(() => focusToday({ behavior: 'auto' }));
   }
 
   init();

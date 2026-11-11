@@ -43,7 +43,7 @@
       <div class="glass entry-card">
         <div class="amount-wrap">
           <span class="currency">¥</span>
-          <input id="amount" inputmode="decimal" placeholder="0.00" autocomplete="off" enterkeyhint="done">
+          <input id="amount" type="text" placeholder="0.00" autocomplete="off" autocapitalize="off" spellcheck="false" enterkeyhint="done">
         </div>
       </div>
 
@@ -185,7 +185,7 @@
     </div>
     <div class="amount-wrap small">
       <span class="currency">¥</span>
-      <input id="edit-amount" inputmode="decimal" autocomplete="off">
+      <input id="edit-amount" type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
     </div>
     <label class="field"><span>分类</span><select id="edit-category"></select></label>
     <label class="field"><span>日期</span><input id="edit-date" type="date"></label>
@@ -232,7 +232,7 @@
     </div>
     <div class="amount-wrap small">
       <span class="currency">¥</span>
-      <input id="savings-amount" inputmode="decimal" autocomplete="off" placeholder="0.00">
+      <input id="savings-amount" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="0.00">
     </div>
     <label class="field" id="savings-date-field"><span>日期</span><input id="savings-date" type="date"></label>
     <label class="field" id="savings-note-field"><span>备注</span><input id="savings-note" maxlength="60" placeholder="可选"></label>

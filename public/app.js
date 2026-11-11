@@ -217,12 +217,25 @@ $("#type-seg").addEventListener("click", (e) => {
   renderCats();
 });
 
-$("#amount").addEventListener("input", (e) => {
-  let v = e.target.value.replace(/[^\d.]/g, "");
+function cleanAmountText(value) {
+  let v = String(value || "").replace(/[^\d.]/g, "");
   const i = v.indexOf(".");
   if (i >= 0) v = v.slice(0, i + 1) + v.slice(i + 1).replace(/\./g, "").slice(0, 2);
+  return v;
+}
+
+$("#amount").addEventListener("input", (e) => {
+  const v = cleanAmountText(e.target.value);
   e.target.value = v;
   state.form.amount = v;
+});
+
+$("#edit-amount").addEventListener("input", (e) => {
+  e.target.value = cleanAmountText(e.target.value);
+});
+
+$("#savings-amount").addEventListener("input", (e) => {
+  e.target.value = cleanAmountText(e.target.value);
 });
 
 $("#date").addEventListener("change", (e) => { state.form.date = e.target.value || todayStr(); });
@@ -455,6 +468,15 @@ async function loadStats() {
   renderStats();
 }
 
+function averageDayCount() {
+  const [year, month] = state.month.split("-").map(Number);
+  const daysInMonth = new Date(year, month, 0).getDate();
+  const today = todayStr();
+  if (state.month === today.slice(0, 7)) return Number(today.slice(8, 10));
+  if (state.month < today.slice(0, 7)) return daysInMonth;
+  return 1;
+}
+
 function renderStats() {
   $("#month-label-2").textContent = fmtMonth(state.month);
   const s = state.stats;
@@ -463,9 +485,10 @@ function renderStats() {
   const get = (t) => (s.summary.find((x) => x.type === t) || { total: 0, n: 0 });
   const expense = get(1).total || 0;
   const income = get(2).total || 0;
+  const dailyAverage = expense / Math.max(1, averageDayCount());
 
   $("#stat-cards").innerHTML = `
-    <div class="stat"><div class="k">支出</div><div class="v">¥${fmtMoney(expense)}</div></div>
+    <div class="stat"><div class="k">支出</div><div class="v">¥${fmtMoney(expense)}</div><div class="sub">日均 ¥${fmtMoney(dailyAverage)}</div></div>
     <div class="stat"><div class="k">收入</div><div class="v green">¥${fmtMoney(income)}</div></div>
     <div class="stat"><div class="k">结余</div><div class="v">¥${fmtMoney(income - expense)}</div></div>`;
 
@@ -909,7 +932,11 @@ function switchView(view) {
   if (!isFanzhuo) document.body.classList.remove("fanzhuo-modal-open");
   if (isFanzhuo) {
     const frame = $("#fanzhuo-frame");
-    if (frame.getAttribute("src") !== frame.dataset.src) frame.setAttribute("src", frame.dataset.src);
+    if (frame.getAttribute("src") !== frame.dataset.src) {
+      frame.setAttribute("src", frame.dataset.src);
+    } else {
+      frame.contentWindow?.postMessage({ type: "fanzhuo:showToday" }, location.origin);
+    }
   }
   $$(".tabbar button").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
   if (view === "list") loadBills();

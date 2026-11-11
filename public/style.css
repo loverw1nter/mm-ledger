@@ -238,6 +238,7 @@ body.fanzhuo-modal-open::after{display:none}
 .stat .k{font-size:10.5px;color:var(--muted);letter-spacing:.08em}
 .stat .v{font-size:15.5px;font-weight:600;margin-top:4px;font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 .stat .v.green{color:var(--income)}
+.stat .sub{margin-top:3px;font-size:10.5px;color:var(--muted);font-variant-numeric:tabular-nums;letter-spacing:-.01em}
 
 .bar-row{display:flex;align-items:center;gap:10px;padding:7px 0}
 .bar-row .nm{width:78px;font-size:12.5px;flex:0 0 auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text,#354255)}
