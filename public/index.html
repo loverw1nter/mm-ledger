@@ -81,7 +81,7 @@
         <button type="button" id="next-month-2" class="icon-btn">›</button>
       </div>
       <div class="cards" id="stat-cards"></div>
-      <div class="card week-card">
+      <div class="card week-card" id="week-card">
         <div class="card-head">
           <h3>近 7 天花销</h3>
           <span class="delta-pill" id="week-compare">—</span>
@@ -292,6 +292,19 @@
     <label class="field"><span>分类</span><select id="batch-category"></select></label>
     <label class="field"><span>子类</span><select id="batch-subcategory"></select></label>
     <button type="button" class="btn primary" id="batch-save">移动到这里</button>
+  </div>
+</div>
+
+<div id="sheet-cat-bills" class="sheet hidden">
+  <div class="sheet-mask" data-close></div>
+  <div class="sheet-body">
+    <div class="sheet-head">
+      <span></span>
+      <span class="sheet-title" id="cat-bills-title">分类明细</span>
+      <button type="button" class="text-btn" data-close>关闭</button>
+    </div>
+    <div class="cat-bills-summary" id="cat-bills-summary"></div>
+    <div id="cat-bills-list"></div>
   </div>
 </div>
 

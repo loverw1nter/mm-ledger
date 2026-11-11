@@ -246,6 +246,12 @@ body.fanzhuo-modal-open::after{display:none}
 .bar-row .fill{height:100%;border-radius:99px;background:var(--expense-grad);box-shadow:0 0 10px rgba(100,125,159,.25)}
 .bar-row .val{width:74px;text-align:right;font-size:12.5px;font-variant-numeric:tabular-nums;color:var(--muted)}
 .bar-row .pct{width:36px;text-align:right;font-size:10.5px;color:var(--faint);font-variant-numeric:tabular-nums}
+.bar-row.is-clickable{cursor:pointer;padding-left:4px;padding-right:4px;margin:0 -4px;border-radius:12px;transition:background .16s}
+.bar-row.is-clickable:hover{background:rgba(120,145,180,.08)}
+.bar-row.is-clickable:active{background:rgba(120,145,180,.14)}
+.cat-bills-summary{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:10px 0 14px;padding:13px 15px;border-radius:16px;background:var(--glass-soft);box-shadow:var(--shadow-inset-sm);font-size:11.5px;color:var(--muted)}
+.cat-bills-summary b{display:block;margin-bottom:3px;font-size:15px;color:var(--ink-strong)}
+.cat-bills-total{flex:0 0 auto;font-size:18px;font-weight:700;color:var(--ink-strong);font-variant-numeric:tabular-nums;letter-spacing:-.02em}
 
 .trend{display:flex;align-items:flex-end;gap:8px;height:132px;padding-top:6px}
 .trend .col{flex:1;display:flex;flex-direction:column;align-items:center;gap:6px;height:100%}

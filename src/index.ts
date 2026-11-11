@@ -426,6 +426,7 @@ app.delete("/api/categories/:id", async (c) => {
 app.get("/api/bills", async (c) => {
   const month = (c.req.query("month") || "").slice(0, 7);
   const type = Number(c.req.query("type") || 0);
+  const categoryId = Number(c.req.query("category_id") || 0);
   const q = (c.req.query("q") || "").trim();
   const all = c.req.query("scope") === "all";
   const userId = c.get("user").id;
@@ -444,6 +445,10 @@ app.get("/api/bills", async (c) => {
   if (type === 1 || type === 2) {
     sql += " AND b.type = ?";
     params.push(type);
+  }
+  if (categoryId > 0) {
+    sql += " AND b.category_id = ?";
+    params.push(categoryId);
   }
   if (q) {
     sql += " AND (b.note LIKE ? OR c.name LIKE ? OR s.name LIKE ?)";

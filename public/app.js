@@ -481,7 +481,9 @@ function renderStats() {
   $("#month-label-2").textContent = fmtMonth(state.month);
   const s = state.stats;
   if (!s) return;
-  renderWeek();
+  const showWeek = state.month === todayStr().slice(0, 7);
+  $("#week-card").classList.toggle("hidden", !showWeek);
+  if (showWeek) renderWeek();
   const get = (t) => (s.summary.find((x) => x.type === t) || { total: 0, n: 0 });
   const expense = get(1).total || 0;
   const income = get(2).total || 0;
@@ -496,7 +498,7 @@ function renderStats() {
   const max = Math.max(1, ...cats.map((c) => c.total));
   $("#cat-bars").innerHTML = cats.length
     ? cats.map((c) => `
-      <div class="bar-row">
+      <div class="bar-row is-clickable" data-cat-id="${c.id}" data-cat-name="${esc(c.name)}" data-cat-emoji="${esc(c.emoji)}" role="button" tabindex="0" title="查看${esc(c.name)}明细">
         <div class="nm">${esc(c.emoji)} ${esc(c.name)}</div>
         <div class="track"><div class="fill" style="width:${Math.max(3, (c.total / max) * 100)}%"></div></div>
         <div class="val">${fmtMoney(c.total)}</div>
@@ -524,6 +526,58 @@ function renderStats() {
       </div>`).join("")
     : `<div class="empty">这个月还没有收入</div>`;
 }
+
+async function openCategoryBills(catId, name, emoji) {
+  $("#cat-bills-title").textContent = name + " 明细";
+  $("#cat-bills-summary").innerHTML = `<div><b>${esc(emoji)} ${esc(name)}</b><div>${fmtMonth(state.month)} · 加载中…</div></div>`;
+  $("#cat-bills-list").innerHTML = '<div class="empty">加载中…</div>';
+  $("#sheet-cat-bills").classList.remove("hidden");
+  try {
+    const data = await api("/api/bills?month=" + state.month + "&type=1&category_id=" + catId);
+    const bills = data.bills || [];
+    const total = bills.reduce((sum, b) => sum + b.amount_cents, 0);
+    $("#cat-bills-summary").innerHTML = `<div><b>${esc(emoji)} ${esc(name)}</b><div>${fmtMonth(state.month)} · ${bills.length} 笔</div></div><div class="cat-bills-total">¥${fmtMoney(total)}</div>`;
+    if (!bills.length) {
+      $("#cat-bills-list").innerHTML = `<div class="empty">这个月没有${esc(name)}支出</div>`;
+      return;
+    }
+    const groups = new Map();
+    for (const b of bills) {
+      if (!groups.has(b.date)) groups.set(b.date, []);
+      groups.get(b.date).push(b);
+    }
+    let html = "";
+    for (const [date, list] of groups) {
+      const dayTotal = list.reduce((sum, b) => sum + b.amount_cents, 0);
+      html += `<div class="glass day-card"><div class="day-head"><b>${fmtDateLabel(date)}</b><span>¥${fmtMoney(dayTotal)}</span></div>`;
+      for (const b of list) {
+        const title = b.subcategory || b.note || "未分子类";
+        const details = [];
+        if (b.subcategory && b.note) details.push(b.note);
+        if (b.time) details.push(b.time);
+        html += `<div class="bill"><div class="emoji">${esc(b.emoji || emoji || "📌")}</div><div class="main"><div class="cate">${esc(title)}</div>${details.length ? `<div class="note">${esc(details.join(" · "))}</div>` : ""}</div><div class="amt">-${fmtMoney(b.amount_cents)}</div></div>`;
+      }
+      html += "</div>";
+    }
+    $("#cat-bills-list").innerHTML = html;
+  } catch (err) {
+    $("#cat-bills-list").innerHTML = `<div class="empty">${esc(err.message)}</div>`;
+  }
+}
+
+$("#cat-bars").addEventListener("click", (event) => {
+  const row = event.target.closest(".bar-row[data-cat-id]");
+  if (!row) return;
+  openCategoryBills(Number(row.dataset.catId), row.dataset.catName || "", row.dataset.catEmoji || "");
+});
+
+$("#cat-bars").addEventListener("keydown", (event) => {
+  if (event.key !== "Enter" && event.key !== " ") return;
+  const row = event.target.closest(".bar-row[data-cat-id]");
+  if (!row) return;
+  event.preventDefault();
+  openCategoryBills(Number(row.dataset.catId), row.dataset.catName || "", row.dataset.catEmoji || "");
+});
 
 function renderWeek() {
   const w = state.stats && state.stats.week;
