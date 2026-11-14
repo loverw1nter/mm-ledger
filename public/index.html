@@ -64,7 +64,6 @@
         <div id="month-label" class="month-label"></div>
         <button type="button" id="next-month" class="icon-btn">›</button>
       </div>
-      <div class="sumrow" id="list-summary"></div>
       <div class="search-wrap">
         <input id="search" placeholder="搜索全部账单：分类、子类或备注" autocomplete="off">
       </div>
@@ -92,22 +91,21 @@
         </div>
         <div class="week-bars" id="week-bars"></div>
       </div>
-      <div class="card savings-card">
+      <div class="card expected-card">
         <div class="card-head">
-          <h3>攒钱</h3>
-          <button type="button" class="mini-btn" id="btn-goal">设目标</button>
+          <h3>预计收款</h3>
+          <button type="button" class="mini-btn" id="btn-expected-save">保存</button>
         </div>
-        <div class="savings-main">
-          <div><span class="savings-cur">¥</span><span class="savings-total" id="savings-total">0.00</span></div>
-          <div class="savings-pct" id="savings-pct">—</div>
+        <div class="expected-main">
+          <span class="expected-cur">¥</span>
+          <input id="expected-input" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="0.00">
         </div>
-        <div class="progress"><div class="progress-fill" id="savings-fill"></div></div>
-        <div class="savings-sub" id="savings-sub">还没有设目标</div>
-        <div class="savings-actions">
-          <button type="button" class="mini-btn primary" id="btn-deposit">＋ 存一笔</button>
-          <button type="button" class="mini-btn" id="btn-withdraw">取出一笔</button>
+        <div class="expected-note">填这个月预计能收到多少钱</div>
+        <div class="expected-rows">
+          <div><span>忽略大额后日均</span><b id="expected-daily">¥0.00</b></div>
+          <div><span>预计支出 · <span id="expected-days">30 天</span></span><b id="expected-spend">¥0.00</b></div>
+          <div class="final"><span>预计剩下</span><b id="expected-left">¥0.00</b></div>
         </div>
-        <div class="savings-list" id="savings-list"></div>
       </div>
       <div class="card">
         <h3>支出排行</h3>
@@ -133,7 +131,6 @@
         <button type="button" class="row hidden" id="btn-accounts"><span>账号管理</span><span class="chev">›</span></button>
         <button type="button" class="row" id="btn-import"><span>导入 CSV</span><span class="chev">›</span></button>
         <button type="button" class="row" id="btn-export"><span>导出 CSV</span><span class="chev">›</span></button>
-        <button type="button" class="row" id="btn-export-savings"><span>导出攒钱 CSV</span><span class="chev">›</span></button>
       </div>
       <div class="card">
         <div class="muted small">当前账号</div>
@@ -218,29 +215,6 @@
   </div>
 </div>
 
-<div id="sheet-savings" class="sheet hidden">
-  <div class="sheet-mask" data-close></div>
-  <div class="sheet-body">
-    <div class="sheet-head">
-      <span></span>
-      <span class="sheet-title" id="savings-title">存一笔</span>
-      <button type="button" class="text-btn" data-close>关闭</button>
-    </div>
-    <div class="seg small" id="savings-dir-seg">
-      <button type="button" data-dir="in" class="active">存入</button>
-      <button type="button" data-dir="out">取出</button>
-    </div>
-    <div class="amount-wrap small">
-      <span class="currency">¥</span>
-      <input id="savings-amount" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="0.00">
-    </div>
-    <label class="field" id="savings-date-field"><span>日期</span><input id="savings-date" type="date"></label>
-    <label class="field" id="savings-note-field"><span>备注</span><input id="savings-note" maxlength="60" placeholder="可选"></label>
-    <p class="muted small savings-hint" id="savings-hint"></p>
-    <button type="button" class="btn primary" id="savings-save">保存</button>
-  </div>
-</div>
-
 <div id="sheet-sub" class="sheet hidden">
   <div class="sheet-mask" data-close></div>
   <div class="sheet-body">
@@ -266,7 +240,7 @@
       <span class="sheet-title">账号管理</span>
       <button type="button" class="text-btn" data-close>关闭</button>
     </div>
-    <p class="muted small">每个账号的账单、分类、攒钱和饭桌都是独立的。</p>
+    <p class="muted small">每个账号的账单、分类、统计设置和饭桌都是独立的。</p>
     <div id="accounts-list"></div>
     <div class="add-cat">
       <div class="add-cat-row">

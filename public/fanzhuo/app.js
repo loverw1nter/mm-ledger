@@ -539,6 +539,16 @@
     });
   }
 
+  function focusWeekDay(key) {
+    const card = dom.weekGrid.querySelector('[data-day-date="' + key + '"]');
+    if (!card) return;
+    card.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+    card.classList.remove('is-focused');
+    void card.offsetWidth;
+    card.classList.add('is-focused');
+    window.setTimeout(() => card.classList.remove('is-focused'), 1400);
+  }
+
   function consumeMealSource(source) {
     if (!source) return null;
     if (source.type === 'wishlist') {
@@ -782,7 +792,7 @@
           .join(' ');
 
         return `
-          <article class="${className}" aria-label="${escapeHtml(labelParts.join('，'))}" style="animation-delay:${index * 30}ms">
+          <article class="${className}" data-preview-date="${key}" role="button" tabindex="0" aria-label="${escapeHtml(labelParts.join('，'))}，点击查看本周菜单" style="animation-delay:${index * 30}ms">
             <div class="preview-day-head">
               <span class="preview-weekday">${WEEKDAYS[day.getDay()]}</span>
               <span class="preview-date">${day.getMonth() + 1}.${pad2(day.getDate())}</span>
@@ -1485,6 +1495,19 @@
         notifyParent({ type: 'fanzhuo:navigate', view: 'entry' });
       });
     }
+
+    dom.weekPreview.addEventListener('click', (event) => {
+      const card = event.target.closest('[data-preview-date]');
+      if (!card) return;
+      focusWeekDay(card.dataset.previewDate);
+    });
+    dom.weekPreview.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' && event.key !== ' ') return;
+      const card = event.target.closest('[data-preview-date]');
+      if (!card) return;
+      event.preventDefault();
+      focusWeekDay(card.dataset.previewDate);
+    });
 
     dom.weekGrid.addEventListener('click', (event) => {
       if (suppressMealClick) {

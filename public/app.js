@@ -7,9 +7,7 @@ const state = {
   categories: [],
   bills: [],
   stats: null,
-  savings: null,
-  savingsMode: "in",
-  savingsDir: "in",
+  expected: 0,
   total: { n: 0, minDate: null, maxDate: null },
   form: { type: 1, amount: "", category_id: null, subcategory_id: null, date: todayStr() },
   editing: null,
@@ -19,7 +17,7 @@ const state = {
   batchType: 1,
   me: null,
   ignoredBills: new Map(),
-  ignoredMonth: null,
+  ignoredKey: null,
 };
 
 function pad(n) { return String(n).padStart(2, "0"); }
@@ -236,7 +234,7 @@ $("#edit-amount").addEventListener("input", (e) => {
   e.target.value = cleanAmountText(e.target.value);
 });
 
-$("#savings-amount").addEventListener("input", (e) => {
+$("#expected-input").addEventListener("input", (e) => {
   e.target.value = cleanAmountText(e.target.value);
 });
 
@@ -289,12 +287,6 @@ function renderBills() {
   $("#prev-month").style.visibility = searching ? "hidden" : "";
   $("#next-month").style.visibility = searching ? "hidden" : "";
   $("#btn-select").disabled = !state.bills.length && !state.selecting;
-  const expense = state.bills.filter((b) => b.type === 1).reduce((sum, b) => sum + b.amount_cents, 0);
-  const income = state.bills.filter((b) => b.type === 2).reduce((sum, b) => sum + b.amount_cents, 0);
-  $("#list-summary").innerHTML = `
-    <div class="sum"><div class="k">支出</div><div class="v">¥${fmtMoney(expense)}</div></div>
-    <div class="sum"><div class="k">收入</div><div class="v green">¥${fmtMoney(income)}</div></div>
-    <div class="sum"><div class="k">结余</div><div class="v">¥${fmtMoney(income - expense)}</div></div>`;
 
   if (!state.bills.length) {
     $("#bill-list").innerHTML = `<div class="empty">` + (searching ? "没有找到匹配的账单" : "这个月还没有账单") + `</div>`;
@@ -397,6 +389,10 @@ async function batchDelete() {
   try {
     const res = await api("/api/bills/batch/delete", { method: "POST", body: { ids } });
     const removed = res.count ?? ids.length;
+    for (const id of ids) {
+      const bill = state.bills.find((b) => b.id === id);
+      forgetIgnoredBill(id, bill ? [bill.date] : []);
+    }
     state.total.n = Math.max(0, state.total.n - removed);
     $("#top-meta").textContent = state.total.n ? "共 " + state.total.n + " 笔" : "";
     toast("已删除 " + removed + " 笔");
@@ -473,18 +469,68 @@ async function loadStats() {
 function averageDayCount() {
   const [year, month] = state.month.split("-").map(Number);
   const daysInMonth = new Date(year, month, 0).getDate();
-  const today = todayStr();
-  if (state.month === today.slice(0, 7)) return Number(today.slice(8, 10));
-  if (state.month < today.slice(0, 7)) return daysInMonth;
+  const now = new Date();
+  const currentMonth = now.getFullYear() + "-" + pad(now.getMonth() + 1);
+  if (state.month === currentMonth) {
+    const effective = new Date(now.getTime());
+    if (effective.getHours() < 18) effective.setDate(effective.getDate() - 1);
+    const effectiveMonth = effective.getFullYear() + "-" + pad(effective.getMonth() + 1);
+    if (effectiveMonth !== state.month) return 1;
+    return Math.max(1, effective.getDate());
+  }
+  if (state.month < currentMonth) return daysInMonth;
   return 1;
 }
 
 let averageBills = [];
 
+function ignoredKeyForMonth(month) {
+  return "mm.avgIgnore." + ((state.me && state.me.username) || "guest") + "." + month;
+}
+
+function ignoredStorageKey() {
+  return ignoredKeyForMonth(state.month);
+}
+
+function readIgnoredBills() {
+  try {
+    const raw = JSON.parse(localStorage.getItem(ignoredStorageKey()) || "[]");
+    if (!Array.isArray(raw)) return new Map();
+    return new Map(raw.filter((x) => Array.isArray(x) && Number.isFinite(Number(x[0])) && Number.isFinite(Number(x[1])))
+      .map((x) => [Number(x[0]), Number(x[1])]));
+  } catch {
+    return new Map();
+  }
+}
+
+function saveIgnoredBills() {
+  try {
+    localStorage.setItem(ignoredStorageKey(), JSON.stringify(Array.from(state.ignoredBills.entries())));
+  } catch {}
+}
+
+function forgetIgnoredBill(id, dates) {
+  const billId = Number(id);
+  const months = new Set((dates || []).filter(Boolean).map((d) => String(d).slice(0, 7)));
+  if (!months.size) months.add(state.month);
+  for (const month of months) {
+    const key = ignoredKeyForMonth(month);
+    try {
+      const raw = JSON.parse(localStorage.getItem(key) || "[]");
+      if (!Array.isArray(raw)) continue;
+      const next = raw.filter((x) => !Array.isArray(x) || Number(x[0]) !== billId);
+      if (next.length === raw.length) continue;
+      localStorage.setItem(key, JSON.stringify(next));
+      if (state.ignoredKey === key) state.ignoredBills.delete(billId);
+    } catch {}
+  }
+}
+
 function resetIgnoredIfNeeded() {
-  if (state.ignoredMonth !== state.month) {
-    state.ignoredMonth = state.month;
-    state.ignoredBills.clear();
+  const key = ignoredStorageKey();
+  if (state.ignoredKey !== key) {
+    state.ignoredKey = key;
+    state.ignoredBills = readIgnoredBills();
   }
 }
 
@@ -554,6 +600,7 @@ async function openAverageSheet() {
     for (const id of Array.from(state.ignoredBills.keys())) {
       if (!valid.has(id)) state.ignoredBills.delete(id);
     }
+    saveIgnoredBills();
     renderAverageSheet();
     updateAverageLine();
   } catch (err) {
@@ -609,6 +656,7 @@ function renderStats() {
         <div class="val">${fmtMoney(c.total)}</div>
       </div>`).join("")
     : `<div class="empty">这个月还没有收入</div>`;
+  renderExpected();
 }
 
 async function openCategoryBills(catId, name, emoji) {
@@ -674,22 +722,28 @@ $("#avg-list").addEventListener("change", (event) => {
   const cents = Number(box.dataset.avgCents) || 0;
   if (box.checked) state.ignoredBills.set(id, cents);
   else state.ignoredBills.delete(id);
+  saveIgnoredBills();
   renderAverageSheet();
   updateAverageLine();
+  renderExpected();
 });
 
 $("#avg-select-all").addEventListener("click", () => {
   const allSelected = averageBills.length > 0 && averageBills.every((b) => state.ignoredBills.has(b.id));
   if (allSelected) state.ignoredBills.clear();
   else averageBills.forEach((b) => state.ignoredBills.set(b.id, b.amount_cents));
+  saveIgnoredBills();
   renderAverageSheet();
   updateAverageLine();
+  renderExpected();
 });
 
 $("#avg-clear").addEventListener("click", () => {
   state.ignoredBills.clear();
+  saveIgnoredBills();
   renderAverageSheet();
   updateAverageLine();
+  renderExpected();
 });
 
 function renderWeek() {
@@ -729,92 +783,52 @@ function renderWeek() {
   }).join("");
 }
 
-async function loadSavings() {
-  const data = await api("/api/savings");
-  state.savings = data;
-  renderSavings();
+async function loadExpected() {
+  const data = await api("/api/expected");
+  state.expected = Number(data.expected) || 0;
+  renderExpected();
 }
 
-function renderSavings() {
-  const s = state.savings || { total: 0, goal: 0, count: 0, entries: [] };
-  $("#savings-total").textContent = fmtMoney(s.total);
-  const pct = s.goal > 0 ? Math.round((s.total / s.goal) * 100) : 0;
-  $("#savings-fill").style.width = Math.max(0, Math.min(100, pct)) + "%";
-  if (s.goal > 0) {
-    $("#savings-pct").textContent = pct + "%";
-    $("#savings-sub").textContent = s.total >= s.goal
-      ? `目标 ¥${fmtMoney(s.goal)} · 已达成`
-      : `目标 ¥${fmtMoney(s.goal)} · 还差 ¥${fmtMoney(s.goal - s.total)}`;
-    $("#btn-goal").textContent = "改目标";
-  } else {
-    $("#savings-pct").textContent = "—";
-    $("#savings-sub").textContent = s.count ? `已存 ${s.count} 笔，设个目标更有动力` : "还没有设目标";
-    $("#btn-goal").textContent = "设目标";
+function monthDayCount() {
+  const [year, month] = state.month.split("-").map(Number);
+  return new Date(year, month, 0).getDate();
+}
+
+function renderExpected() {
+  const input = $("#expected-input");
+  if (!input) return;
+  if (document.activeElement !== input) {
+    input.value = state.expected ? (state.expected / 100).toFixed(2) : "";
   }
-  $("#savings-list").innerHTML = s.entries.length
-    ? s.entries.map((e) => {
-      const out = e.amount_cents < 0;
-      return `<div class="savings-row">
-        <span class="d">${e.date.slice(5)}</span>
-        <span class="n">${esc(e.note || (out ? "取出" : "存入"))}</span>
-        <span class="a ${out ? "out" : ""}">${out ? "-" : "+"}¥${fmtMoney(Math.abs(e.amount_cents))}</span>
-        <button type="button" class="del" data-del="${e.id}">删除</button>
-      </div>`;
-    }).join("")
-    : "";
+  const days = monthDayCount();
+  const daily = averageDailyCents();
+  const spend = Math.round(daily * days);
+  const left = state.expected - spend;
+  $("#expected-daily").textContent = "¥" + fmtMoney(daily);
+  $("#expected-days").textContent = days + " 天";
+  $("#expected-spend").textContent = "¥" + fmtMoney(spend);
+  const leftEl = $("#expected-left");
+  leftEl.textContent = (left < 0 ? "-¥" : "¥") + fmtMoney(Math.abs(left));
+  leftEl.classList.toggle("negative", left < 0);
 }
 
-function openSavingsSheet(mode, dir = "in") {
-  state.savingsMode = mode;
-  state.savingsDir = dir;
-  $("#savings-title").textContent = mode === "goal" ? "设攒钱目标" : dir === "out" ? "取出一笔" : "存一笔";
-  $("#savings-dir-seg").classList.toggle("hidden", mode === "goal");
-  $("#savings-date-field").classList.toggle("hidden", mode === "goal");
-  $("#savings-note-field").classList.toggle("hidden", mode === "goal");
-  $("#savings-hint").textContent = mode === "goal"
-    ? "填 0 可以取消目标"
-    : dir === "out" ? "从攒钱总额里扣掉" : "加到攒钱总额里";
-  $$("#savings-dir-seg button").forEach((b) => b.classList.toggle("active", b.dataset.dir === dir));
-  $("#savings-amount").value = mode === "goal" && state.savings?.goal
-    ? (state.savings.goal / 100).toFixed(2)
-    : "";
-  $("#savings-date").value = todayStr();
-  $("#savings-note").value = "";
-  $("#sheet-savings").classList.remove("hidden");
-  setTimeout(() => $("#savings-amount").focus(), 100);
-}
-
-async function saveSavings() {
-  const btn = $("#savings-save");
-  if (btn.disabled) return;
+async function saveExpected(notify = false) {
+  const input = $("#expected-input");
+  const raw = cleanAmountText(input.value.trim());
+  input.value = raw;
+  const amount = raw ? Number(raw) : 0;
+  if (!Number.isFinite(amount) || amount < 0) return toast("金额不对");
+  if (Math.round(amount * 100) === state.expected) {
+    if (notify) toast("已保存");
+    return;
+  }
   try {
-    const raw = $("#savings-amount").value.trim();
-    if (!raw) return toast("填一下金额");
-    const amount = Number(raw);
-    if (!Number.isFinite(amount) || amount < 0) return toast("填一下金额");
-    btn.disabled = true;
-    if (state.savingsMode === "goal") {
-      await api("/api/savings/goal", { method: "PUT", body: { goal: amount.toFixed(2) } });
-      toast(amount ? "目标已保存" : "目标已取消");
-    } else {
-      if (amount <= 0) return toast("金额要大于 0");
-      await api("/api/savings", {
-        method: "POST",
-        body: {
-          amount: amount.toFixed(2),
-          direction: state.savingsDir,
-          date: $("#savings-date").value,
-          note: $("#savings-note").value,
-        },
-      });
-      toast(state.savingsDir === "out" ? "已取出" : "已存入");
-    }
-    closeSheets();
-    await loadSavings();
+    const data = await api("/api/expected", { method: "PUT", body: { expected: amount.toFixed(2) } });
+    state.expected = Number(data.expected) || 0;
+    renderExpected();
+    if (notify) toast("已保存");
   } catch (err) {
     toast(err.message);
-  } finally {
-    btn.disabled = false;
   }
 }
 
@@ -887,6 +901,7 @@ $("#edit-save").addEventListener("click", async () => {
         time: $("#edit-time").value,
       },
     });
+    forgetIgnoredBill(state.editing.id, [state.editing.date, $("#edit-date").value]);
     closeSheets();
     toast("已保存");
     await refreshVisible();
@@ -897,6 +912,7 @@ $("#edit-delete").addEventListener("click", async () => {
   if (!confirm("删除这笔账单？")) return;
   try {
     await api("/api/bills/" + state.editing.id, { method: "DELETE" });
+    forgetIgnoredBill(state.editing.id, [state.editing.date]);
     closeSheets();
     state.total.n = Math.max(0, state.total.n - 1);
     $("#top-meta").textContent = state.total.n ? "共 " + state.total.n + " 笔" : "";
@@ -988,9 +1004,6 @@ async function reloadCategories() {
 /* ---------- 导入导出 ---------- */
 $("#btn-export").addEventListener("click", () => {
   window.location.href = "/api/export.csv";
-});
-$("#btn-export-savings").addEventListener("click", () => {
-  window.location.href = "/api/export-savings.csv";
 });
 
 $("#btn-import").addEventListener("click", () => $("#file-input").click());
@@ -1107,7 +1120,7 @@ function switchView(view) {
   }
   $$(".tabbar button").forEach((b) => b.classList.toggle("active", b.dataset.view === view));
   if (view === "list") loadBills();
-  if (view === "stats") Promise.all([loadStats(), loadSavings()]);
+  if (view === "stats") Promise.all([loadStats(), loadExpected()]);
   if (view === "me") renderMe();
   window.scrollTo(0, 0);
 }
@@ -1131,7 +1144,7 @@ window.addEventListener("message", (event) => {
 
 function refreshVisible() {
   if (state.view === "list") loadBills();
-  else if (state.view === "stats") Promise.all([loadStats(), loadSavings()]);
+  else if (state.view === "stats") Promise.all([loadStats(), loadExpected()]);
 }
 
 function renderMe() {
@@ -1205,35 +1218,14 @@ $("#new-user-pass").addEventListener("keydown", (e) => {
     addUser();
   }
 });
-$("#btn-goal").addEventListener("click", () => openSavingsSheet("goal"));
-$("#btn-deposit").addEventListener("click", () => openSavingsSheet("in", "in"));
-$("#btn-withdraw").addEventListener("click", () => openSavingsSheet("in", "out"));
-$$("#savings-dir-seg button").forEach((btn) => {
-  btn.addEventListener("click", () => {
-    state.savingsDir = btn.dataset.dir;
-    $$("#savings-dir-seg button").forEach((b) => b.classList.toggle("active", b === btn));
-    $("#savings-title").textContent = btn.dataset.dir === "out" ? "取出一笔" : "存一笔";
-    $("#savings-hint").textContent = btn.dataset.dir === "out" ? "从攒钱总额里扣掉" : "加到攒钱总额里";
-  });
-});
-$("#savings-save").addEventListener("click", saveSavings);
-$("#savings-amount").addEventListener("keydown", (e) => {
+$("#btn-expected-save").addEventListener("click", () => saveExpected(true));
+$("#expected-input").addEventListener("keydown", (e) => {
   if (e.key === "Enter") {
     e.preventDefault();
-    saveSavings();
+    e.target.blur();
   }
 });
-$("#savings-list").addEventListener("click", async (e) => {
-  const btn = e.target.closest("[data-del]");
-  if (!btn || !confirm("删掉这笔攒钱记录？")) return;
-  try {
-    await api("/api/savings/" + btn.dataset.del, { method: "DELETE" });
-    await loadSavings();
-    toast("已删除");
-  } catch (err) {
-    toast(err.message);
-  }
-});
+$("#expected-input").addEventListener("blur", () => saveExpected(false));
 $("#btn-logout").addEventListener("click", async () => {
   if (!confirm("退出登录？")) return;
   await api("/api/logout", { method: "POST" });

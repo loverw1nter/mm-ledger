@@ -761,6 +761,26 @@ app.put("/api/savings/goal", async (c) => {
   return c.json({ ok: true });
 });
 
+app.get("/api/expected", async (c) => {
+  const userId = c.get("user").id;
+  const row = await c.env.DB.prepare(
+    "SELECT value FROM app_settings WHERE user_id = ? AND key = 'expected_receipt_cents'"
+  ).bind(userId).first<any>();
+  return c.json({ expected: Number(row?.value || 0) });
+});
+
+app.put("/api/expected", async (c) => {
+  const userId = c.get("user").id;
+  const body = await c.req.json().catch(() => ({} as any));
+  const expected = toCents(body.expected);
+  if (expected === null || expected < 0) return c.json({ error: "金额不对" }, 400);
+  await c.env.DB.prepare(
+    "INSERT INTO app_settings (user_id, key, value) VALUES (?, 'expected_receipt_cents', ?) " +
+    "ON CONFLICT(user_id, key) DO UPDATE SET value = excluded.value"
+  ).bind(userId, String(expected)).run();
+  return c.json({ ok: true, expected });
+});
+
 app.get("/api/fanzhuo", async (c) => {
   const userId = c.get("user").id;
   const row = await c.env.DB.prepare(
