@@ -801,15 +801,15 @@ function renderExpected() {
     input.value = state.expected ? (state.expected / 100).toFixed(2) : "";
   }
   const days = monthDayCount();
-  const daily = averageDailyCents();
-  const spend = Math.round(daily * days);
+  const daily = Math.round(averageDailyCents());
+  const spend = daily * days;
   const left = state.expected - spend;
   $("#expected-daily").textContent = "¥" + fmtMoney(daily);
   $("#expected-days").textContent = days + " 天";
   $("#expected-spend").textContent = "¥" + fmtMoney(spend);
   const leftEl = $("#expected-left");
-  leftEl.textContent = (left < 0 ? "-¥" : "¥") + fmtMoney(Math.abs(left));
-  leftEl.classList.toggle("negative", left < 0);
+  leftEl.textContent = state.expected ? (left < 0 ? "-¥" : "¥") + fmtMoney(Math.abs(left)) : "—";
+  leftEl.classList.toggle("negative", state.expected > 0 && left < 0);
 }
 
 async function saveExpected(notify = false) {
